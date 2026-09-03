@@ -1,732 +1,2722 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<title>Case Timeline</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Deadline Calendar — Grist Widget</title>
 <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
   :root {
-    --bg:        #ffffff;
-    --bg2:       #f7f6f2;
-    --bg3:       #f0efe9;
-    --text:      #1a1a18;
-    --text2:     #5f5e5a;
-    --text3:     #999890;
-    --border:    rgba(0,0,0,0.10);
-    --border2:   rgba(0,0,0,0.18);
-    --radius:    8px;
-    --radius-lg: 12px;
-    --track:     #d3d1c7;
-    --font:      'DM Sans', system-ui, sans-serif;
-    --font-mono: 'DM Mono', monospace;
+    --bg: #ffffff;
+    --panel: #fbfbfa;
+    --ink: #1d2b2a;
+    --ink-soft: #5a6968;
+    --ink-faint: #8a9695;
+    --line: #e6e8e6;
+    --line-strong: #d3d7d4;
+    --accent: #1a7f6b;
+    --accent-soft: #e7f3f0;
+    --today: #fff5e8;
+    --today-line: #e6b366;
+    --selected: #e7f3f0;
+    --danger: #b4452f;
+    --green: #1f9d57;
+    --green-soft: #e8f6ed;
+    --green-mid: #c4e7d1;
+    --green-ink: #15663a;
+    --green-line: #bfe6cd;
+    --red: #c23b22;
+    --red-soft: #fbecea;
+    --case-hl: #6a4fa0;
+    --case-hl-soft: #efe9f7;
+    --search-hl: #c9971a;
+    --search-hl-soft: #fff6df;
+    --radius: 8px;
+    --shadow: 0 1px 2px rgba(20,40,38,.06), 0 6px 20px rgba(20,40,38,.07);
+    --ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    --display: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
   }
-
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg:      #1e1e1c;
-      --bg2:     #282825;
-      --bg3:     #323230;
-      --text:    #f0efe9;
-      --text2:   #b4b2a9;
-      --text3:   #6e6d68;
-      --border:  rgba(255,255,255,0.10);
-      --border2: rgba(255,255,255,0.18);
-      --track:   #3d3d3a;
-    }
-  }
-
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=DM+Mono:wght@400;500&display=swap');
-
-  html, body {
-    font-family: var(--font);
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: var(--ui);
+    color: var(--ink);
     background: var(--bg);
-    color: var(--text);
-    font-size: 14px;
-    line-height: 1.5;
-    min-height: 100vh;
-  }
-
-  /* ── TOOLBAR ─────────────────────────────────────────────── */
-  .toolbar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    padding: 10px 16px;
-    border-bottom: 0.5px solid var(--border);
-    background: var(--bg2);
-    position: sticky;
-    top: 0;
-    z-index: 20;
-  }
-  .toolbar-section {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .toolbar label {
-    font-size: 11px;
-    color: var(--text3);
-    font-weight: 500;
-    white-space: nowrap;
-  }
-  .toolbar input[type="date"] {
-    font-family: var(--font-mono);
-    font-size: 12px;
-    padding: 4px 8px;
-    border: 0.5px solid var(--border2);
-    border-radius: var(--radius);
-    background: var(--bg);
-    color: var(--text);
-    height: 30px;
-    width: 138px;
-  }
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-family: var(--font);
-    font-size: 12px;
-    font-weight: 500;
-    height: 30px;
-    padding: 0 12px;
-    border: 0.5px solid var(--border2);
-    border-radius: var(--radius);
-    background: var(--bg);
-    color: var(--text2);
-    cursor: pointer;
-    white-space: nowrap;
-    transition: background 0.12s;
-  }
-  .btn:hover { background: var(--bg3); }
-  .btn svg { flex-shrink: 0; }
-
-  .sep {
-    width: 0.5px;
-    height: 20px;
-    background: var(--border2);
-    margin: 0 2px;
-  }
-
-  /* ── STATUS BAR ──────────────────────────────────────────── */
-  .statusbar {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-    padding: 6px 16px;
-    border-bottom: 0.5px solid var(--border);
-    background: var(--bg);
-    min-height: 34px;
-  }
-  .pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 11px;
-    font-weight: 500;
-    padding: 3px 9px;
-    border-radius: 20px;
-    border: 0.5px solid transparent;
-    cursor: pointer;
-    transition: opacity 0.12s;
-    user-select: none;
-  }
-  .pill.off { opacity: 0.35; }
-  .pill-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  .count-badge {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    background: var(--bg3);
-    color: var(--text3);
-    padding: 1px 5px;
-    border-radius: 10px;
-    margin-left: 2px;
-  }
-
-  /* ── MAIN SCROLL AREA ────────────────────────────────────── */
-  .tl-scroll-wrap {
-    overflow-x: auto;
-    overflow-y: visible;
-    padding: 0 16px 24px;
-    position: relative;
-  }
-  .tl-canvas {
-    position: relative;
-    min-width: 100%;
-  }
-
-  /* axis row */
-  .axis-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 10px 0 4px;
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--text3);
-    min-height: 28px;
-  }
-  .axis-tick {
-    position: absolute;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--text3);
-    transform: translateX(-50%);
-    white-space: nowrap;
-  }
-
-  /* track */
-  .track-row {
-    position: relative;
-    height: 2px;
-    background: var(--track);
-    margin: 0;
-  }
-  .track-today {
-    position: absolute;
-    top: -6px;
-    width: 2px;
-    height: 14px;
-    background: #E24B4A;
-    border-radius: 1px;
-  }
-  .track-today-label {
-    position: absolute;
-    top: -20px;
-    font-size: 10px;
-    color: #A32D2D;
-    font-weight: 500;
-    transform: translateX(-50%);
-    white-space: nowrap;
-  }
-
-  /* events layer */
-  .events-layer {
-    position: relative;
-    height: 220px;
-  }
-  .evt-node {
-    position: absolute;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    transform: translateX(-50%);
-    top: 0;
-    cursor: pointer;
-  }
-  .evt-date-label {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--text3);
-    white-space: nowrap;
-    margin-bottom: 3px;
-    margin-top: 4px;
-  }
-  .evt-cat-pill {
-    font-size: 10px;
-    font-weight: 500;
-    padding: 2px 7px;
-    border-radius: 10px;
-    white-space: nowrap;
-    margin-bottom: 0;
-  }
-  .evt-stem {
-    width: 1.5px;
-    height: 36px;
-    flex-shrink: 0;
-  }
-  .evt-dot {
-    width: 11px;
-    height: 11px;
-    border-radius: 50%;
-    border: 2px solid var(--bg);
-    flex-shrink: 0;
-    position: relative;
-    z-index: 3;
-    transition: transform 0.12s;
-  }
-  .evt-node:hover .evt-dot { transform: scale(1.35); }
-  .evt-desc-card {
-    margin-top: 8px;
-    width: 140px;
-    font-size: 11px;
-    line-height: 1.45;
-    text-align: center;
-    color: var(--text2);
-    background: var(--bg2);
-    border: 0.5px solid var(--border);
-    border-radius: var(--radius);
-    padding: 5px 7px;
-    word-break: break-word;
-  }
-
-  /* ── TOOLTIP ─────────────────────────────────────────────── */
-  #tooltip {
-    position: fixed;
-    z-index: 9999;
-    background: var(--bg);
-    border: 0.5px solid var(--border2);
-    border-radius: var(--radius-lg);
-    padding: 10px 14px;
-    max-width: 280px;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.12s;
     font-size: 13px;
-    line-height: 1.55;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
   }
-  .tt-date { font-family: var(--font-mono); font-size: 11px; color: var(--text3); margin-bottom: 2px; }
-  .tt-cat  { font-size: 11px; font-weight: 500; margin-bottom: 5px; }
-  .tt-desc { color: var(--text); font-size: 13px; }
+  #app { display: flex; flex-direction: column; height: 100vh; min-height: 0; }
 
-  /* ── EMPTY / CONFIG STATES ───────────────────────────────── */
-  .state-panel {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    padding: 3rem 1rem;
-    color: var(--text3);
-    text-align: center;
+  /* ---- Toolbar ---- */
+  .toolbar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 9px 12px; border-bottom: 1px solid var(--line);
+    background: var(--panel);
   }
-  .state-panel svg { opacity: 0.4; }
-  .state-panel p { font-size: 13px; line-height: 1.6; max-width: 340px; }
-  .state-panel code {
-    font-family: var(--font-mono);
-    background: var(--bg3);
-    padding: 1px 5px;
-    border-radius: 4px;
-    font-size: 12px;
-    color: var(--text2);
+  .version {
+    font-size: 11px; color: var(--ink-faint);
+    font-variant-numeric: tabular-nums; letter-spacing: .02em;
+    padding: 2px 7px; border: 1px solid var(--line); border-radius: 20px;
+    background: #fff; white-space: nowrap; align-self: center;
   }
+  .demo-badge {
+    font-size: 11px; font-weight: 700; letter-spacing: .04em; color: #8a5a12;
+    padding: 2px 8px; border: 1px solid #e6d0a0; border-radius: 20px;
+    background: #fdf3e0; white-space: nowrap; align-self: center;
+  }
+  .searchwrap { display: flex; align-items: center; gap: 4px; flex: 1 1 220px; max-width: 360px; min-width: 160px; }
+  .searchinput {
+    flex: 1; min-width: 0; font: inherit; font-size: 12.5px; padding: 6px 9px;
+    border: 1px solid var(--line-strong); border-radius: 7px; background: #fff; color: var(--ink);
+  }
+  .searchinput:focus { outline: none; border-color: var(--search-hl); box-shadow: 0 0 0 3px var(--search-hl-soft); }
+  .search-count { font-size: 11px; color: var(--search-hl); font-weight: 700; white-space: nowrap; }
+  .searchnav { flex: none; border: 1px solid var(--line-strong); background: #fff; color: var(--ink-soft); cursor: pointer; font-size: 12px; width: 22px; height: 22px; border-radius: 5px; line-height: 1; padding: 0; }
+  .searchnav:hover { background: var(--search-hl-soft); border-color: var(--search-hl); color: var(--search-hl); }
+  .searchclear { flex: none; border: 0; background: transparent; color: var(--ink-faint); cursor: pointer; font-size: 12px; padding: 3px 5px; border-radius: 5px; }
+  .searchclear:hover { background: #eef1ef; color: var(--ink); }
+  .agenda-search-hd {
+    font-size: 11.5px; font-weight: 700; padding: 10px 4px 4px; color: var(--search-hl);
+    text-transform: none; letter-spacing: 0;
+  }
+  .agenda-search-hd.agenda-search-hd-rest { color: var(--ink-faint); text-transform: uppercase; letter-spacing: .06em; font-size: 11px; padding-top: 16px; }
+  .seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: var(--radius); overflow: hidden; }
+  .seg button {
+    border: 0; background: transparent; padding: 6px 12px; font: inherit; cursor: pointer;
+    color: var(--ink-soft); border-right: 1px solid var(--line-strong);
+  }
+  .seg button:last-child { border-right: 0; }
+  .seg button.active { background: var(--accent); color: #fff; }
+  .seg button:not(.active):hover { background: #eef1ef; }
 
-  /* ── CONFIG BANNER ───────────────────────────────────────── */
-  .config-banner {
-    margin: 10px 16px;
-    padding: 10px 14px;
-    background: var(--bg2);
-    border: 0.5px solid var(--border2);
-    border-radius: var(--radius);
-    font-size: 12px;
-    color: var(--text2);
-    line-height: 1.6;
+  .nav { display: inline-flex; align-items: center; gap: 4px; }
+  .iconbtn {
+    border: 1px solid var(--line-strong); background: #fff; border-radius: var(--radius);
+    width: 30px; height: 30px; cursor: pointer; color: var(--ink-soft); font-size: 15px; line-height: 1;
   }
-  .config-banner strong { font-weight: 500; color: var(--text); }
+  .iconbtn:hover { background: #eef1ef; }
+  .todaybtn {
+    border: 1px solid var(--line-strong); background: #fff; border-radius: var(--radius);
+    padding: 6px 12px; cursor: pointer; font: inherit; color: var(--ink-soft);
+  }
+  .todaybtn:hover { background: #eef1ef; }
 
-  /* ── RECORD COUNT ────────────────────────────────────────── */
-  .record-count {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--text3);
-    margin-left: auto;
-    white-space: nowrap;
+  .period {
+    font-family: var(--display); font-size: 18px; font-weight: 600; letter-spacing: .2px;
+    margin: 0 4px; white-space: nowrap;
+  }
+  .spacer { flex: 1 1 auto; }
+
+  .dropwrap { position: relative; }
+  .dropbtn {
+    border: 1px solid var(--line-strong); background: #fff; border-radius: var(--radius);
+    padding: 6px 11px; cursor: pointer; font: inherit; color: var(--ink-soft);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .dropbtn:hover { background: #eef1ef; }
+  .dropbtn[disabled] { opacity: .4; cursor: not-allowed; }
+  .dropbtn .dot { background: var(--accent); color: #fff; border-radius: 20px; font-size: 11px; padding: 0 6px; }
+  .caret { color: var(--ink-faint); font-size: 10px; }
+
+  .popover {
+    position: absolute; top: calc(100% + 6px); right: 0; z-index: 50;
+    background: #fff; border: 1px solid var(--line-strong); border-radius: 10px;
+    box-shadow: var(--shadow); min-width: 220px; max-width: 300px; padding: 8px;
+  }
+  .pophead { display: flex; align-items: flex-start; justify-content: space-between; }
+  .popclose { border: 0; background: transparent; cursor: pointer; font-size: 18px; line-height: 1; color: var(--ink-faint); padding: 2px 6px 6px; }
+  .popclose:hover { color: var(--ink); }
+  .popover h4 { margin: 4px 6px 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); }
+  .poprow { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 6px; cursor: pointer; }
+  .poprow:hover { background: #f3f5f3; }
+  .poprow input { margin: 0; }
+  .poprow .label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .poprow .swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+  .poplist { max-height: min(640px, 72vh); overflow: auto; }
+  .settings-pop { min-width: 260px; max-width: 320px; }
+  .settings-row { align-items: flex-start; }
+  .settings-row input { margin-top: 2px; flex: none; }
+  .settings-text { flex: 1; min-width: 0; }
+  .settings-label { font-size: 13px; color: var(--ink); }
+  .settings-hint { font-size: 11px; color: var(--ink-faint); margin-top: 2px; line-height: 1.35; }
+  .settings-selectrow { padding-top: 8px; padding-bottom: 8px; }
+  .settings-select {
+    margin-top: 6px; width: 100%; font: inherit; font-size: 12.5px; padding: 5px 8px;
+    border: 1px solid var(--line-strong); border-radius: 6px; background: #fff; color: var(--ink);
+  }
+  .settings-row + .settings-row { border-top: 1px solid var(--line); }
+  .popactions { display: flex; gap: 6px; padding: 6px; border-top: 1px solid var(--line); margin-top: 4px; }
+  .popactions button { flex: 1; border: 1px solid var(--line-strong); background: #fff; border-radius: 6px; padding: 5px; cursor: pointer; font: inherit; color: var(--ink-soft); }
+  .popactions button:hover { background: #eef1ef; }
+  .radio-row { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 6px; cursor: pointer; }
+  .radio-row:hover { background: #f3f5f3; }
+
+  /* ---- Body ---- */
+  .body { flex: 1 1 auto; min-height: 0; overflow: auto; scrollbar-gutter: stable; }
+  .meta { padding: 6px 12px; color: var(--ink-faint); font-size: 12px; border-bottom: 1px solid var(--line); }
+  .meta b { color: var(--ink-soft); font-weight: 600; }
+
+  /* Month grid */
+  .month { display: flex; flex-direction: column; min-height: 100%; }
+  /* The day panel is a FIXED height, not a max-height — so the month grid above it
+     (and every cell in it) never resizes when you select a day with more or fewer
+     deadlines. A short list just leaves blank space; a long one scrolls internally. */
+  .daypanel { border-top: 2px solid var(--line-strong); background: var(--panel);
+              display: flex; flex-direction: column; height: 42vh; flex: none; }
+  .daypanel h3 { font-family: var(--display); font-size: 16px; margin: 0; padding: 12px 14px 6px; flex: none; }
+  .daypanel .addday { flex: none; }
+  .daypanel .list { flex: 1; min-height: 0; overflow: auto; scrollbar-gutter: stable; }
+  .daypanel.dragover { box-shadow: inset 0 0 0 2px var(--accent); }
+  .weekhead { display: grid; grid-template-columns: repeat(7, 1fr); border-bottom: 1px solid var(--line); }
+  .weekhead div { padding: 7px 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); text-align: left; }
+  .grid { display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: 1fr; flex: 1; }
+  .cell {
+    border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    padding: 5px 6px; min-height: 96px; cursor: pointer; display: flex; flex-direction: column; gap: 3px; overflow: hidden;
+  }
+  .cell:nth-child(7n) { border-right: 0; }
+  .cell.outside { background: #e9ebe8; }
+  .cell.outside .daynum { color: var(--ink-faint); }
+  .cell.today { background: var(--today); box-shadow: inset 0 0 0 1px var(--today-line); }
+  .cell.selected { background: var(--selected); box-shadow: inset 0 0 0 2px var(--accent); }
+  .cell:hover { background: #f1f5f3; }
+  .cell.dragover { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
+  .daynum { font-size: 12px; color: var(--ink-soft); font-weight: 600; }
+  .chip {
+    font-size: 11px; padding: 1px 6px; border-radius: 5px; background: var(--accent-soft);
+    color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    border-left: 3px solid var(--accent); cursor: grab;
+  }
+  .chip:active { cursor: grabbing; }
+  .chip.dragging { opacity: .35; }
+  .chip .t { color: var(--ink-soft); font-variant-numeric: tabular-nums; margin-right: 4px; }
+  .chip.chip-complete { background: var(--green-mid); color: var(--green-ink); }
+  .chip.chip-ready { background: var(--green-mid); color: var(--green-ink); }
+  .chip.chip-critical { background: var(--red-soft); color: var(--ink); font-weight: 600; }
+  .chip.case-highlight { outline: 2px solid var(--case-hl); outline-offset: 1px; }
+  .chip.search-match { background: var(--search-hl-soft); outline: 2px solid var(--search-hl); outline-offset: 1px; font-weight: 600; }
+  .more { font-size: 11px; color: var(--ink-faint); padding-left: 2px; }
+  .more.more-has-match { color: var(--search-hl); font-weight: 700; }
+
+  /* Week */
+  .week { display: grid; grid-template-columns: repeat(7, minmax(150px, 1fr)); min-height: 100%; }
+  .weekcol { border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  .weekcol.dragover { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
+  .weekcol:last-child { border-right: 0; }
+  .weekcol .colhead {
+    padding: 8px 10px; border-bottom: 1px solid var(--line); cursor: pointer; position: sticky; top: 0; background: var(--panel); z-index: 1;
+  }
+  .weekcol .colhead:hover { background: #eef1ef; }
+  .weekcol.today .colhead { background: var(--today); box-shadow: inset 0 0 0 1px var(--today-line); }
+  .weekcol.selected .colhead { background: var(--selected); box-shadow: inset 0 0 0 2px var(--accent); }
+  .colhead .dow { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); }
+  .colhead .dnum { font-family: var(--display); font-size: 17px; }
+  .colbody { padding: 6px; display: flex; flex-direction: column; gap: 6px; }
+
+  /* Day list rows (shared by day view + month day-panel + week columns) */
+  .list { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .row {
+    display: flex; gap: 10px; align-items: flex-start; padding: 9px 10px;
+    border: 1px solid var(--line); border-radius: 8px; background: #fff; cursor: pointer;
+    border-left-width: 4px;
+  }
+  .row:hover { border-color: var(--line-strong); box-shadow: var(--shadow); }
+  .row.dragging { opacity: .35; }
+  .row.case-highlight { outline: 2px solid var(--case-hl); outline-offset: 2px; background: var(--case-hl-soft); }
+  .row.search-match { outline: 2px solid var(--search-hl); outline-offset: 2px; background: var(--search-hl-soft); }
+  .row.search-match.case-highlight { outline: 2px solid var(--search-hl); box-shadow: 0 0 0 4px var(--case-hl-soft); }
+  .row .duewrap { position: relative; flex: none; }
+  .row .time {
+    font-variant-numeric: tabular-nums; color: var(--ink-soft); font-size: 12px; min-width: 64px; padding: 1px 3px 0 0;
+    border: 0; background: transparent; font-family: inherit; text-align: left; cursor: pointer; border-radius: 5px;
+    text-decoration: underline dotted; text-decoration-color: var(--line-strong); text-underline-offset: 2px;
+  }
+  .row .time.none { color: var(--ink-faint); }
+  .row .time.editable:hover { color: var(--accent); text-decoration-color: var(--accent); }
+  .row .time.bare { text-decoration: none; min-width: 0; opacity: .65; }
+  .row .time.bare:hover { opacity: 1; }
+  .row .time .pen { font-size: 10px; margin-left: 3px; opacity: .45; }
+  .row .time.editable:hover .pen { opacity: .9; }
+  .row .daysleft { font-size: 11px; margin-top: 2px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .row .daysleft.dl-future { color: var(--ink-faint); }
+  .row .daysleft.dl-today { color: #8a5a12; font-weight: 600; }
+  .row .daysleft.dl-over { color: var(--red); font-weight: 600; }
+
+  .dateeditor {
+    position: absolute; top: calc(100% + 4px); left: 0; z-index: 60; background: #fff;
+    border: 1px solid var(--line-strong); border-radius: 8px; box-shadow: var(--shadow);
+    padding: 8px; display: flex; flex-direction: column; gap: 6px; min-width: 190px;
+  }
+  .dateeditor input { font: inherit; padding: 5px 6px; border: 1px solid var(--line-strong); border-radius: 6px; }
+  .de-shortcuts { display: flex; flex-wrap: wrap; gap: 5px; }
+  .de-shortcuts button {
+    border: 1px solid var(--line-strong); background: #f6f8f6; border-radius: 20px;
+    padding: 3px 10px; font: inherit; font-size: 11px; cursor: pointer; color: var(--ink-soft);
+  }
+  .de-shortcuts button:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .de-actions { display: flex; gap: 6px; }
+  .de-actions button { flex: 1; border: 1px solid var(--line-strong); border-radius: 6px; padding: 5px; cursor: pointer; font: inherit; }
+  .de-save { background: var(--accent); color: #fff; border-color: var(--accent) !important; }
+  .de-save:hover { filter: brightness(1.05); }
+  .de-cancel { background: #fff; color: var(--ink-soft); }
+  .de-cancel:hover { background: #eef1ef; }
+
+  .row .main { flex: 1; min-width: 0; }
+  .row .title { font-weight: 600; font-size: 13px; word-break: break-word; }
+  .row .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 5px; }
+  .row .desc {
+    font-size: 12px; color: var(--ink-soft); margin-top: 5px; white-space: pre-wrap; overflow-wrap: anywhere;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden;
+  }
+  .row .desc.full { display: block; -webkit-line-clamp: none; overflow: visible; }
+  .row .descmore { display: none; font-size: 11px; color: var(--accent); margin-top: 3px; user-select: none; }
+  .row.expanded .descmore, .row.truncated .descmore { display: inline-block; }
+  .tag { font-size: 11px; padding: 1px 7px; border-radius: 20px; background: #f0f2f0; color: var(--ink-soft); }
+  .tag.cat { color: #fff; }
+  .tag.asg::before { content: "@"; opacity: .6; margin-right: 1px; }
+  .tag.pri { border: 1px solid var(--line-strong); background: #fff; }
+  .tag.pri.imp { background: var(--red-soft); border-color: #e6b3a8; color: var(--red); font-weight: 600; }
+  .compactrow { flex-direction: column; align-items: stretch; gap: 4px; padding: 7px 9px; border-radius: 7px; }
+  .compactrow .duewrap { align-self: flex-start; }
+  .compactrow .statuswrap { margin-left: 0; align-self: flex-start; }
+  .compactrow .title { font-size: 12px; }
+
+  .row.complete { background: var(--green-mid); }
+  .row.ready { background: var(--green-mid); }
+  .row.complete .title.done { color: var(--green-ink); }
+  .row.critical { background: var(--red-soft); }
+
+  /* Status control */
+  .statuswrap { position: relative; flex: none; margin-left: auto; }
+  .statuspill {
+    border: 1px solid var(--line-strong); background: #fff; border-radius: 20px;
+    padding: 3px 11px; font: inherit; font-size: 11px; cursor: pointer; color: var(--ink-soft); white-space: nowrap;
+  }
+  .statuspill:hover { background: #eef1ef; }
+  .statuspill.is-complete { background: var(--green-soft); border-color: var(--green-line); color: var(--green-ink); }
+  .statuspill .pcaret { color: var(--ink-faint); font-size: 9px; margin-left: 4px; }
+  .statusmenu {
+    position: absolute; top: calc(100% + 4px); right: 0; z-index: 60; background: #fff;
+    border: 1px solid var(--line-strong); border-radius: 8px; box-shadow: var(--shadow); min-width: 150px; padding: 4px;
+  }
+  .statusitem {
+    display: block; width: 100%; text-align: left; border: 0; background: transparent;
+    padding: 6px 10px; border-radius: 6px; font: inherit; cursor: pointer; color: var(--ink);
+  }
+  .statusitem:hover { background: #f3f5f3; }
+  .statusitem.current { font-weight: 600; color: var(--accent); }
+  .statusitem.clear { color: var(--ink-faint); border-top: 1px solid var(--line); margin-top: 4px; }
+
+  .lg { margin-left: 12px; color: var(--ink-faint); white-space: nowrap; }
+  .lg i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+
+  .empty { color: var(--ink-faint); padding: 14px; font-style: italic; }
+
+  /* Inline field editors (description, assignee) */
+  .fieldedit { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; background: #fff; border: 1px solid var(--line-strong); border-radius: 8px; padding: 8px; }
+  .fieldedit textarea { font: inherit; min-height: 64px; resize: vertical; border: 1px solid var(--line-strong); border-radius: 6px; padding: 6px; width: 100%; box-sizing: border-box; }
+  .fe-actions { display: flex; gap: 6px; }
+  .fe-actions button { border: 1px solid var(--line-strong); border-radius: 6px; padding: 5px 12px; cursor: pointer; font: inherit; }
+  .fe-save { background: var(--accent); color: #fff; border-color: var(--accent) !important; }
+  .fe-save:hover { filter: brightness(1.05); }
+  .fe-cancel { background: #fff; color: var(--ink-soft); }
+  .fe-cancel:hover { background: #eef1ef; }
+  .editlink { font-size: 11px; color: var(--accent); cursor: pointer; user-select: none; margin-top: 4px; display: inline-block; }
+  .editlink:hover { text-decoration: underline; }
+  .addnote { font-size: 11px; color: var(--ink-faint); cursor: pointer; margin-top: 5px; display: inline-block; user-select: none; }
+  .addnote:hover { color: var(--accent); }
+  .tag.editchip { background: #fff; border: 1px dashed var(--line-strong); color: var(--ink-faint); cursor: pointer; }
+  .tag.editchip:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* Assignee picker (shared by inline editor + new-task modal) */
+  .picker { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pchip { font-size: 11px; padding: 3px 10px; border-radius: 20px; border: 1px solid var(--line-strong); background: #fff; color: var(--ink-soft); cursor: pointer; }
+  .pchip.sel { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .padd { display: flex; gap: 6px; margin-top: 6px; }
+  .padd input { flex: 1; font: inherit; padding: 5px 6px; border: 1px solid var(--line-strong); border-radius: 6px; min-width: 0; }
+  .padd button { border: 1px solid var(--line-strong); background: #f6f8f6; border-radius: 6px; padding: 5px 10px; cursor: pointer; font: inherit; }
+  .padd button:hover { background: var(--accent-soft); }
+
+  /* New-deadline button + modal */
+  .newbtn { border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: var(--radius); padding: 6px 13px; cursor: pointer; font: inherit; font-weight: 600; }
+  .newbtn:hover { filter: brightness(1.06); }
+  .addday { border: 1px solid var(--line-strong); background: #fff; color: var(--accent); border-radius: 6px; padding: 3px 10px; cursor: pointer; font: inherit; font-size: 12px; margin: 8px 14px 2px; }
+  .addday:hover { background: var(--accent-soft); }
+  .modal-overlay { position: fixed; inset: 0; background: rgba(20,30,28,.4); display: flex; align-items: flex-start; justify-content: center; z-index: 200; padding: 22px 12px; overflow: auto; }
+  .modal { background: #fff; border-radius: 12px; box-shadow: var(--shadow); width: 100%; max-width: 380px; padding: 16px 18px 18px; }
+  .modal h3 { font-family: var(--display); margin: 0 0 6px; font-size: 19px; }
+  .modal label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-faint); margin: 11px 0 3px; }
+  .modal input[type=text], .modal input[type=date], .modal input[type=time], .modal textarea { width: 100%; font: inherit; padding: 7px 8px; border: 1px solid var(--line-strong); border-radius: 7px; box-sizing: border-box; }
+  .modal textarea { min-height: 58px; resize: vertical; }
+  .modal .row2 { display: flex; gap: 8px; }
+  .modal .row2 > div { flex: 1; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 18px; }
+  .modal-actions button { flex: 1; border: 1px solid var(--line-strong); border-radius: 8px; padding: 9px; cursor: pointer; font: inherit; }
+  .m-create { background: var(--accent); color: #fff; border-color: var(--accent) !important; font-weight: 600; }
+  .m-create:hover { filter: brightness(1.05); }
+  .m-cancel { background: #fff; color: var(--ink-soft); }
+  .m-cancel:hover { background: #eef1ef; }
+
+  /* Needs-attention link + panel */
+  .needattn { color: var(--warn, #9a6b12); cursor: pointer; font-weight: 600; }
+  .needattn:hover { text-decoration: underline; }
+  .ua-sub { color: var(--ink-faint); font-size: 12px; margin: 6px 0 12px; }
+  .ua-list { display: flex; flex-direction: column; gap: 8px; max-height: 56vh; overflow: auto; }
+  .ua-item { border: 1px solid var(--line); border-left: 4px solid var(--warn-line, #e6b366); border-radius: 8px; padding: 9px 10px; background: #fff; }
+  .ua-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .ua-title { font-weight: 600; word-break: break-word; }
+  .ua-reason { font-size: 11px; color: var(--warn, #9a6b12); white-space: nowrap; }
+  .ua-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+  .ua-fix { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+  .ua-fix input[type=date] { font: inherit; padding: 5px 7px; border: 1px solid var(--line-strong); border-radius: 6px; }
+  .btn-small { border: 1px solid var(--accent); background: var(--accent); color: #fff; border-radius: 6px; padding: 5px 11px; cursor: pointer; font: inherit; font-size: 12px; }
+  .btn-small:hover { filter: brightness(1.05); }
+  .btn-small.ghost { background: #fff; color: var(--ink-soft); border-color: var(--line-strong); }
+  .btn-small.ghost:hover { background: #eef1ef; }
+  .btn-small.ghost.danger { color: var(--red); border-color: #e6b3a8; }
+  .btn-small.ghost.danger:hover { background: var(--red-soft); border-color: var(--red); }
+
+  .delbtn {
+    flex: none; border: 0; background: transparent; color: var(--ink-faint);
+    font-size: 13px; padding: 4px 6px; cursor: pointer; border-radius: 6px;
+    opacity: .45; line-height: 1; align-self: flex-start;
+  }
+  .delbtn:hover { background: var(--red-soft); color: var(--red); opacity: 1; }
+
+  /* Messages */
+  .notice { padding: 28px; max-width: 460px; margin: 24px auto; text-align: center; color: var(--ink-soft); }
+
+  /* Agenda */
+  .agenda { padding: 12px 14px 24px; max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+  .agenda-empty { padding: 40px 12px; text-align: center; color: var(--ink-faint); font-size: 14px; }
+  .agenda-band {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+    padding: 10px 4px 4px; color: var(--ink-faint);
+  }
+  .agenda-band:first-child { padding-top: 2px; }
+  .agenda-band-3 { color: var(--red); }
+  .agenda-band-2 { color: #8a5a12; }
+  .agenda-band-1 { color: var(--ink-soft); }
+  .agenda-band-0 { color: var(--ink-faint); }
+  .notice h2 { font-family: var(--display); color: var(--ink); }
+  .notice code { background: #f0f2f0; padding: 1px 5px; border-radius: 4px; }
+  .notice ol { text-align: left; line-height: 1.7; }
+
+  @media (max-width: 640px) {
+    .period { font-size: 15px; }
+    .week { grid-template-columns: repeat(7, minmax(130px, 1fr)); }
   }
 </style>
 </head>
 <body>
-
-<h2 class="sr-only" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)">
-  Case event timeline — displays case events from the linked Grist table on a horizontally scrollable track, color-coded by category.
-</h2>
-
-<!-- ── TOOLBAR ── -->
-<div class="toolbar" id="toolbar">
-  <div class="toolbar-section">
-    <label>Start</label>
-    <input type="date" id="rangeStart" title="Timeline start date">
-  </div>
-  <div class="toolbar-section">
-    <label>End</label>
-    <input type="date" id="rangeEnd" title="Timeline end date">
-  </div>
-  <button class="btn" onclick="applyRange()" title="Apply date range">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-    Apply range
-  </button>
-  <button class="btn" onclick="fitToEvents()" title="Fit to events">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-    Fit to data
-  </button>
-  <div class="sep"></div>
-  <button class="btn" id="todayBtn" onclick="toggleToday()" title="Show today marker">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-    Today
-  </button>
-  <span class="record-count" id="recordCount"></span>
+<div id="app">
+  <div class="toolbar" id="toolbar"></div>
+  <div class="meta" id="meta"></div>
+  <div class="body" id="body"></div>
 </div>
-
-<!-- ── CATEGORY FILTER BAR ── -->
-<div class="statusbar" id="statusbar"></div>
-
-<!-- ── CONFIG BANNER (shown when columns need mapping) ── -->
-<div class="config-banner" id="configBanner" style="display:none">
-  <strong>Column mapping needed.</strong> Open the Creator Panel → Widget Options and map:
-  <code>EventDate</code>, <code>Category</code>, <code>Description</code>.
-  Optionally map <code>CaseID</code> to filter by case.
-</div>
-
-<!-- ── TIMELINE AREA ── -->
-<div id="mainArea">
-  <div class="state-panel" id="emptyPanel">
-    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/>
-      <circle cx="7" cy="12" r="2" fill="currentColor"/><circle cx="14" cy="6" r="2" fill="currentColor"/><circle cx="18" cy="18" r="2" fill="currentColor"/>
-    </svg>
-    <p>Waiting for data from Grist.<br>Link this widget to a table with your case events.</p>
-  </div>
-  <div id="timelineWrap" style="display:none">
-    <div class="tl-scroll-wrap" id="tlScrollWrap">
-      <div class="tl-canvas" id="tlCanvas"></div>
-    </div>
-  </div>
-</div>
-
-<div id="tooltip"></div>
 
 <script>
-/* ── CATEGORY COLOR MAP ────────────────────────────────────── */
-const CAT_COLORS = {
-  Filing:        { dot: '#185FA5', badge: '#ddeef9', text: '#0C447C' },
-  Hearing:       { dot: '#3B6D11', badge: '#e2f0d1', text: '#27500A' },
-  Discovery:     { dot: '#854F0B', badge: '#fce8c8', text: '#633806' },
-  Order:         { dot: '#993556', badge: '#f7dce8', text: '#72243E' },
-  Communication: { dot: '#534AB7', badge: '#e7e6fb', text: '#3C3489' },
-  Deadline:      { dot: '#A32D2D', badge: '#fce0e0', text: '#791F1F' },
-  Deposition:    { dot: '#0F6E56', badge: '#d5f0e8', text: '#085041' },
-  Motion:        { dot: '#BA7517', badge: '#faecd8', text: '#854F0B' },
-  Settlement:    { dot: '#1D9E75', badge: '#d5f0e8', text: '#0F6E56' },
-  Other:         { dot: '#5F5E5A', badge: '#ebebeb', text: '#2C2C2A' },
+"use strict";
+
+// Calendar widget version. Bump this on each change and note it here.
+// 2.0 — Case/Matter mapping + new-deadline Case picker; hardened create with
+//       accurate error messages (access vs. data) and reference-safe writes.
+// 2.1 — Case picker is now a type-to-filter field matching the other dropdowns;
+//       calendar keeps a consistent size when a busy day's scrollbar appears
+//       (stable scrollbar gutter + day panel scrolls internally).
+// 2.2 — Case field now matches Status/Category exactly (removed a stray
+//       placeholder that made it look different from the other fields).
+// 2.3 — Version label moved to the header bar, right next to the + New button.
+// 2.4 — Month view's day panel is now a fixed height (was max-height), so the
+//       calendar grid no longer resizes when switching between a busy day and
+//       an empty one; the day panel's list scrolls internally instead.
+// 2.5 — Removed the Title field from "New deadline": Title is a formula column
+//       (built from Case + Category), so this widget no longer requires it or
+//       writes to it, which would have overridden the formula.
+// 2.6 — Fixed "couldn't be linked" on create: Grist was handing back the Case
+//       reference already resolved to display text (no row id attached), so a
+//       case already in use could fail to link. Now reads the RAW reference
+//       values via fetchTable and matches them back by row id, so an existing
+//       case links directly instead of falling back to an unlinked deadline.
+// 2.7 — Added the ability to fully delete a deadline from the widget: a trash
+//       icon on every task row (month/week/day views) and a Delete option in
+//       the "needs attention" panel for undated/unplaced tasks. Confirms first,
+//       removes the record from the table, and distinguishes an access problem
+//       from a data problem if the delete fails.
+// 2.8 — Drag and drop to reschedule: drag a chip (month grid) or a task row
+//       (day panel / week columns) onto a different day cell, week column, or
+//       the day panel to change its due date. Preserves time-of-day for
+//       DateTime columns; dropping on the task's current day is a no-op.
+//       Native HTML5 drag-and-drop, so touchscreens aren't supported yet.
+// 2.9 — Added demo data: opening this page outside Grist now shows a sample
+//       docket (16 dated + 2 undated deadlines across 5 fictional matters) so
+//       every feature — filters, the Case picker, drag-and-drop, delete,
+//       critical flags — can be tried before connecting a real document.
+//       A "DEMO DATA" badge appears in the toolbar; edits are in-memory only.
+// 3.0 — Added a Settings button (gear icon, toolbar) for options that don't
+//       need to be visible all the time. First setting: "Show deadlines from
+//       other months" — toggles whether Month view's greyed-out lead/trail
+//       days (e.g. late July shown while viewing August) display their
+//       deadlines. Defaults on (matches prior behavior); persists per-doc.
+// 3.1 — Click a deadline chip or row (or start dragging one) to highlight every
+//       other deadline for the same case, in every visible view — so you can
+//       see at a glance whether a reschedule would push it past a related
+//       deadline. Click again / click empty space to clear. Drag highlighting
+//       is applied directly to the page (not via a full re-render), so it
+//       can't interrupt an in-progress drag.
+// 3.2 — The related-deadline highlight from 3.1 is now a Settings toggle
+//       ("Highlight related deadlines"), on by default. Turning it off also
+//       clears any highlight currently showing. Only appears in Settings when
+//       a Case column is mapped.
+// 3.3 — Four new settings: "Start week on" (any day, not just Sunday/Monday —
+//       Month grid, Week view, and the week-range label all follow it, even
+//       when the weekend ends up in the middle of the row); "Hide weekends"
+//       (drops Sat/Sun columns from Month/Week view); "Deadlines shown per
+//       day" (2–6, was fixed at 3); "Time format" (12-hour or 24-hour).
+// 3.4 — Added an "Agenda" view: a flat, ranked list of every pending (non-
+//       complete) deadline, grouped into Overdue / Due Soon / Upcoming / No
+//       Date. Ranking is band-first (overdue always outranks upcoming),
+//       High priority breaks ties within a band, then soonest/most-overdue
+//       first — computed straight from the due date, so it works without
+//       any extra column mappings.
+// 3.5 — Added a live search box (title/description/case/category/assignee,
+//       multi-word AND). Matches are highlighted (a gold outline, distinct
+//       from the case-relation highlight) and PROMOTED — sorted ahead of
+//       non-matches in every view — rather than hiding non-matches. In
+//       Month view this also protects matches from "+N more" truncation; if
+//       a day has more matches than visible slots, the overflow line says
+//       so. Agenda view splits into a "Matching" section and an "Other
+//       pending" section so band headers don't confusingly repeat.
+// 3.6 — Added a Settings toggle, "Search hides non-matches" (off by default).
+//       Off = 3.5's promote-only behavior. On = search becomes a true filter:
+//       non-matching deadlines disappear from Month/Week/Day/Agenda entirely
+//       instead of just sorting lower. Has no effect while the search box is
+//       empty.
+// 3.7 — Enter in the search box jumps the calendar to the next matching
+//       deadline's day (Shift+Enter for previous), stepping through matches
+//       in chronological order across months — with ‹ › buttons and a
+//       "Match N of M" indicator as a mouse alternative. Switching from
+//       Agenda view happens automatically since Agenda has no single
+//       focused day to jump to. Typing resets the cycle position.
+// 3.8 — Added a "Color deadlines by" setting: Category (unchanged default) or
+//       Assigned person. Assignee mode colors each deadline by who's on it,
+//       using that person's own color from the Deadlines tab when Grist has
+//       one configured for them, otherwise a deterministic fallback so every
+//       person still gets a distinct, stable color. Deadlines with more than
+//       one assignee are split into equal color bands (halves, thirds, etc).
+//       Built as an extensible setting — more color modes can be added
+//       later without restructuring.
+// 3.9 — In Assigned Person mode, assignee color now takes priority over
+//       EVERYTHING, including completed (green) and critical (red) status —
+//       matching the setting's purpose of identity color being the dominant
+//       signal. Category mode is unchanged: status still wins over category
+//       there. A completed task's ✓ checkmark text still shows either way;
+//       only the competing background/border color is suppressed.
+// 4.0 — Fixed inconsistent highlighting in Assigned Person mode: a task with
+//       one assignee only had a colored border stripe (default pale
+//       background), while 2+ assignees got a fully colored split
+//       background. Single-assignee chips/rows are now fully highlighted
+//       too, using the same lightened tone as one band of the multi-person
+//       gradient, so every assigned deadline reads consistently.
+// 4.1 — Fixed "New deadline" not offering a way to set the Case: if none of
+//       the currently-loaded deadlines had a Case set yet, the modal showed
+//       only a passive note and NO input at all. It now always shows a
+//       usable Case field — you can type any case name even with an empty
+//       list, and it writes correctly for both Reference and Choice/Text
+//       Case columns (creating an unlinked-but-saved deadline, with a note,
+//       if it's a brand-new case on a true Reference column).
+const WIDGET_VERSION = "4.1";
+
+/* ===================== State ===================== */
+const today = new Date();
+const state = {
+  ready: false,
+  haveGrist: typeof grist !== "undefined" && grist && grist.ready,
+  demoMode: false,       // true when previewing with sample data outside Grist
+  records: [],          // parsed + scheduled deadlines
+  mapped: { due: false, title: false, category: false, assignedTo: false, priority: false, status: false, description: false },
+  cols: {},             // logical name -> real column id (for write/create)
+  statusColId: null,    // real column id of the Status column (for write-back)
+  dueColId: null,       // real column id of the Due Date column (for write-back)
+  descColId: null,
+  asgColId: null,
+  dueIsDateTime: false, // whether the due column carries a time component
+  dueTypeFromMeta: null,// resolved column type from metadata (null until known)
+  asgMulti: false,      // Assigned To holds multiple values (ChoiceList)
+  asgTypeKnown: false,
+  catMulti: false,      // Category holds multiple values (ChoiceList)
+  catTypeKnown: false,
+  priIsBool: false,     // Priority is a boolean/toggle column
+  priTypeKnown: false,
+  caseIsRef: false,      // Case is a true Reference column (vs Choice/Text)
+  caseTypeKnown: false,
+  caseTargetTable: null, // the reference's target table id, parsed from its type
+  caseRegistry: {},      // case label -> row id (or null), from cases already in use
+  caseRawById: {},       // deadline row id -> raw Case cell value (unresolved)
+  typesChecked: false,
+  view: "month",        // 'day' | 'week' | 'month'
+  focus: stripTime(today),
+  selectedKey: dayKeyFromDate(today),
+  sortByPriority: false,
+  sortDir: "asc",       // asc = High -> Low
+  hiddenCats: new Set(),
+  hiddenAsgs: new Set(),
+  hiddenStatuses: new Set(),
+  redCats: new Set(),   // categories flagged critical (red)
+  redCatsInit: false,   // whether redCats has been seeded/loaded
+  openPopover: null,    // 'cat' | 'asg' | 'status' | 'sort' | 'flags' | 'settings' | null
+  showOutsideDeadlines: true,   // show/hide deadlines in the greyed-out lead/trail days of month view
+  highlightCase: null,          // case label whose other deadlines are currently highlighted
+  caseHighlightEnabled: true,   // whether clicking/dragging a deadline highlights its case-mates
+  weekStartDay: 0,       // 0=Sunday .. 6=Saturday \u2014 which day begins a week
+  maxChipsPerDay: 3,     // deadlines shown directly in a month-view cell before "+N more"
+  timeFormat: "12h",     // "12h" (AM/PM) or "24h"
+  hideWeekends: false,   // omit Saturday/Sunday columns from Month and Week view
+  search: "",            // live text search \u2014 highlights and promotes matches, doesn't hide non-matches
+  searchFiltersOut: false,   // when true, search HIDES non-matches instead of just demoting them
+  searchCycleIndex: null,    // which chronological match Enter-cycling is currently on
+  taskColorMode: "category", // "category" (current) | "assignee" \u2014 more modes may be added later
+  assigneeColors: {},        // person name -> hex color, read from Grist's own Choice/ChoiceList colors when available
+  openStatusRow: null,  // rowId whose status menu is open
+  openDateRow: null,    // rowId whose due-date editor is open
+  editingDescRow: null, // rowId whose description editor is open
+  editingAsgRow: null,  // rowId whose assignee editor is open
+  editingCatRow: null,  // rowId whose category editor is open
+  editingPriRow: null,  // rowId whose priority editor is open
+  expandedRows: new Set(), // rowIds whose full description is shown
+  unplaced: [],         // records with no usable due date (not on the calendar)
+  showUnplaced: false,  // whether the "needs attention" panel is open
 };
-function getCatColor(cat) {
-  return CAT_COLORS[cat] || CAT_COLORS.Other;
+
+const COMPLETE_WORDS = new Set(["complete","completed","done","closed","resolved","finished"]);
+const READY_WORDS = new Set(["ready"]);
+const NO_STATUS = "(No status)";
+
+const NO_CAT = "(No category)";
+const UNASSIGNED = "(Unassigned)";
+
+/* ===================== Date helpers ===================== */
+function stripTime(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+function dayKeyFromYMD(y, m, d) { return y + "-" + m + "-" + d; }       // m is 0-indexed
+function dayKeyFromDate(d) { return dayKeyFromYMD(d.getFullYear(), d.getMonth(), d.getDate()); }
+function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+function startOfWeek(d) {
+  const x = stripTime(d);
+  const diff = (x.getDay() - state.weekStartDay + 7) % 7;
+  return addDays(x, -diff);
+}
+// The ordered list of weekday indices (0=Sun..6=Sat) to display as columns,
+// rotated to start on state.weekStartDay, with Sat/Sun dropped if hidden.
+function visibleDowIndices() {
+  const order = [];
+  for (let i = 0; i < 7; i++) order.push((state.weekStartDay + i) % 7);
+  return state.hideWeekends ? order.filter(d => d !== 0 && d !== 6) : order;
 }
 
-/* ── STATE ─────────────────────────────────────────────────── */
-let allEvents    = [];
-let filterCats   = new Set();
-let rangeStart   = null;
-let rangeEnd     = null;
-let showToday    = true;
-let mappings     = null;
-let columnsReady = false;
+const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const DOW = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
-/* ── GRIST INTEGRATION ─────────────────────────────────────── */
-grist.ready({
-  requiredAccess: 'read table',
-  columns: [
-    { name: 'EventDate',    title: 'Event Date',   type: 'Date,DateTime,Text', allowMultiple: false },
-    { name: 'Category',     title: 'Category',     type: 'Text,Choice',        allowMultiple: false },
-    { name: 'Description',  title: 'Description',  type: 'Text',               allowMultiple: false },
-    { name: 'CaseID',       title: 'Case ID',      type: 'Text,Numeric,Reference', allowMultiple: false, optional: true },
-  ],
-  onEditOptions() {
-    /* no-op: Grist will open creator panel */
+function fmtTime(h, m) {
+  if (state.timeFormat === "24h") return pad2(h) + ":" + pad2(m);
+  const ap = h >= 12 ? "PM" : "AM";
+  let hh = h % 12; if (hh === 0) hh = 12;
+  return hh + ":" + String(m).padStart(2, "0") + " " + ap;
+}
+
+/* Interpret a Grist date/datetime numeric value.
+   - Pure Date columns are stored at UTC midnight (value % 86400 === 0) -> read in UTC, no time.
+   - DateTime values -> read in local time, show time if not midnight. */
+function parseDue(v) {
+  if (v instanceof Date) v = v.getTime() / 1000;
+  else if (typeof v === "string" && v.trim() !== "" && !isNaN(Number(v))) v = Number(v);
+  if (typeof v !== "number" || !isFinite(v)) return null;
+  const hasTime = (v % 86400 !== 0);
+  const d = new Date(v * 1000);
+  if (hasTime) {
+    const h = d.getHours(), m = d.getMinutes();
+    return {
+      y: d.getFullYear(), mo: d.getMonth(), d: d.getDate(),
+      minuteOfDay: h * 60 + m, timed: true,
+      timeStr: (h === 0 && m === 0) ? null : fmtTime(h, m),
+    };
   }
-});
+  return { y: d.getUTCFullYear(), mo: d.getUTCMonth(), d: d.getUTCDate(), minuteOfDay: -1, timed: false, timeStr: null };
+}
 
-grist.onRecords(function(records, maps) {
-  mappings = maps;
-  columnsReady = !!(maps && maps.EventDate && maps.Category && maps.Description);
-  document.getElementById('configBanner').style.display = columnsReady ? 'none' : '';
+/* ===================== Value helpers ===================== */
+function toList(v) {
+  if (v === null || v === undefined || v === "") return [];
+  if (Array.isArray(v)) {
+    const items = (v[0] === "L") ? v.slice(1) : v;
+    return items.filter(x => x !== null && x !== undefined && x !== "").map(x => String(x));
+  }
+  return [String(v)];
+}
 
-  if (!columnsReady) {
-    allEvents = [];
-    render();
+const PRI_WORDS = {
+  "highest":0,"critical":0,"urgent":0,"emergency":0,"p0":0,"a":0,
+  "high":1,"p1":1,"important":1,
+  "medium":2,"normal":2,"med":2,"moderate":2,"standard":2,"p2":2,
+  "low":3,"p3":3,
+  "lowest":4,"p4":4,"none":5
+};
+function priorityRank(v) {
+  if (v === null || v === undefined || v === "") return { num: Infinity, str: "" };
+  if (v === true) return { num: 0, str: "" };
+  if (v === false) return { num: 6, str: "" };
+  if (typeof v === "number") return { num: v, str: "" };
+  const s = String(v).trim().toLowerCase();
+  if (s === "true" || s === "yes" || s === "y") return { num: 0, str: s };
+  if (s === "false" || s === "no" || s === "n") return { num: 6, str: s };
+  if (s in PRI_WORDS) return { num: PRI_WORDS[s], str: s };
+  const n = parseFloat(s);
+  if (!isNaN(n)) return { num: n, str: s };
+  return { num: 1000, str: s }; // unknown text -> after known ranks, then alpha
+}
+
+// Deterministic pleasant color for a category label.
+const CAT_COLORS = ["#1a7f6b","#3a6ea5","#b4452f","#8a5a9c","#a8762a","#2f7d8a","#7a8c2e","#9c4f6b","#4a5d8a","#6b8e23"];
+function catColor(label) {
+  let h = 0; for (let i = 0; i < label.length; i++) h = (h * 31 + label.charCodeAt(i)) >>> 0;
+  return CAT_COLORS[h % CAT_COLORS.length];
+}
+// Color for a person: prefer the color Grist has configured for that value
+// in the Assigned To column itself (read via detectColumnTypes), falling
+// back to the same deterministic palette used for categories so everyone
+// still gets a distinct, stable color even without one configured in Grist.
+function personColor(name) {
+  if (state.assigneeColors && state.assigneeColors[name]) return state.assigneeColors[name];
+  let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return CAT_COLORS[h % CAT_COLORS.length];
+}
+function lightenHex(hex, amt) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex || "");
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  r = Math.round(r + (255 - r) * amt); g = Math.round(g + (255 - g) * amt); b = Math.round(b + (255 - b) * amt);
+  return "#" + [r, g, b].map(v => v.toString(16).padStart(2, "0")).join("");
+}
+// A hard-stop gradient with one equal band per assignee (half-and-half for
+// two people, thirds for three, etc.), in pastel tones so chip/row text
+// stays legible on top of it.
+function assigneeSplitBackground(names) {
+  const n = names.length;
+  const stops = [];
+  names.forEach((name, i) => {
+    const c = lightenHex(personColor(name), 0.72);
+    stops.push(c + " " + (i / n * 100).toFixed(2) + "%", c + " " + ((i + 1) / n * 100).toFixed(2) + "%");
+  });
+  return "linear-gradient(90deg, " + stops.join(", ") + ")";
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
+}
+
+/* ===================== Filtering / sorting ===================== */
+function recCats(r) { const l = toList(r.category); return l.length ? l : [NO_CAT]; }
+function recAsgs(r) { const l = toList(r.assignedTo); return l.length ? l : [UNASSIGNED]; }
+function recStatus(r) {
+  const s = r.status;
+  if (s === null || s === undefined || String(s).trim() === "") return [NO_STATUS];
+  return [String(s)];
+}
+
+/* ----- Status / criticality classification ----- */
+function isComplete(r) {
+  if (!state.mapped.status) return false;
+  const s = r.status;
+  if (s === null || s === undefined) return false;
+  return COMPLETE_WORDS.has(String(s).trim().toLowerCase());
+}
+function isReady(r) {
+  if (!state.mapped.status) return false;
+  const s = r.status;
+  if (s === null || s === undefined) return false;
+  return READY_WORDS.has(String(s).trim().toLowerCase());
+}
+function isImportant(v) {
+  if (v === null || v === undefined || v === "") return false;
+  return priorityRank(v).num <= 1; // highest/critical/urgent/high/important/p0/p1 or numeric <=1
+}
+function isCritical(r) {
+  if (state.mapped.priority && isImportant(r.priority)) return true;
+  if (state.mapped.category && recCats(r).some(c => state.redCats.has(c))) return true;
+  return false;
+}
+// 'complete' and 'ready' (green) win over 'critical' (red), else 'normal'
+function classify(r) {
+  if (isComplete(r)) return "complete";
+  if (isReady(r)) return "ready";
+  if (isCritical(r)) return "critical";
+  return "normal";
+}
+// Colors a chip/row. In "assignee" mode, who's assigned always wins \u2014 even
+// over completed/ready/critical status \u2014 per the setting's whole point:
+// assignee identity is the dominant signal. In "category" mode (default),
+// completed/ready/critical status still wins over category, as before.
+function applyTaskColor(node, r, kind) {
+  if (state.taskColorMode === "assignee" && state.mapped.assignedTo) {
+    const names = toList(r.assignedTo);
+    if (names.length >= 2) {
+      node.style.borderLeftColor = personColor(names[0]);
+      node.style.background = assigneeSplitBackground(names);
+      return;
+    }
+    if (names.length === 1) {
+      // A single assignee is treated as a 1-band "split" \u2014 same lightening
+      // as the multi-person gradient, so every assigned chip/row is fully
+      // colored, not just the ones with more than one person on them.
+      node.style.borderLeftColor = personColor(names[0]);
+      node.style.background = lightenHex(personColor(names[0]), 0.72);
+      return;
+    }
+    node.style.borderLeftColor = "var(--accent)";
+    return;
+  }
+  if (kind === "complete" || kind === "ready") { node.style.borderLeftColor = "var(--green)"; return; }
+  if (kind === "critical") { node.style.borderLeftColor = "var(--red)"; return; }
+  const cats = recCats(r);
+  node.style.borderLeftColor = (state.mapped.category && cats[0] !== NO_CAT) ? catColor(cats[0]) : "var(--accent)";
+}
+// The CSS class suffix (chip-complete/chip-critical/row status classes) sets
+// its own background/text color independent of applyTaskColor's inline
+// styles \u2014 in assignee mode that would fight the assignee color, so it's
+// suppressed there. The "\u2713 " text prefix for completed items is untouched
+// (that's text, not color, so it doesn't compete with assignee coloring).
+function visualKind(kind) { return state.taskColorMode === "assignee" ? "normal" : kind; }
+
+function isVisible(r) {
+  if (state.mapped.category) {
+    const cats = recCats(r);
+    if (!cats.some(c => !state.hiddenCats.has(c))) return false;
+  }
+  if (state.mapped.assignedTo) {
+    const asgs = recAsgs(r);
+    if (!asgs.some(a => !state.hiddenAsgs.has(a))) return false;
+  }
+  if (state.mapped.status) {
+    const ss = recStatus(r);
+    if (!ss.some(s => !state.hiddenStatuses.has(s))) return false;
+  }
+  if (state.searchFiltersOut && searchActive() && !matchesSearch(r)) return false;
+  return true;
+}
+
+/* ---- Search: highlights and promotes matches, never hides non-matches.
+   Matches title, description, case, category, and assignee; multi-word
+   searches are AND'd together. ---- */
+function matchesSearch(r) {
+  const q = (state.search || "").trim().toLowerCase();
+  if (!q) return false;
+  const hay = [
+    r.title, r.description, r.caseLabel,
+    state.mapped.category ? toList(r.category).join(" ") : "",
+    state.mapped.assignedTo ? toList(r.assignedTo).join(" ") : "",
+  ].filter(v => v !== null && v !== undefined).join(" ").toLowerCase();
+  return q.split(/\s+/).filter(Boolean).every(term => hay.indexOf(term) >= 0);
+}
+function searchActive() { return (state.search || "").trim() !== ""; }
+
+// Pure chronological order (earliest due date/time first) \u2014 distinct from
+// the ranking comparators, since stepping through search results should walk
+// the calendar in date order, not by urgency.
+function chronoCompare(a, b) {
+  if (a.due.y !== b.due.y) return a.due.y - b.due.y;
+  if (a.due.mo !== b.due.mo) return a.due.mo - b.due.mo;
+  if (a.due.d !== b.due.d) return a.due.d - b.due.d;
+  return (a.due.minuteOfDay || 0) - (b.due.minuteOfDay || 0);
+}
+function searchMatchesChrono() {
+  return state.records.filter(r => isVisible(r) && matchesSearch(r)).sort(chronoCompare);
+}
+// Move the calendar's focus to the next (or previous) matching deadline's
+// day, wrapping around. Only dated matches can be jumped to \u2014 an undated
+// match has no day to focus the calendar on.
+function cycleSearchMatch(dir) {
+  if (!searchActive()) return;
+  const matches = searchMatchesChrono();
+  if (!matches.length) return;
+  const cur = (typeof state.searchCycleIndex === "number") ? state.searchCycleIndex : -1;
+  const next = ((cur + dir) % matches.length + matches.length) % matches.length;
+  state.searchCycleIndex = next;
+  const r = matches[next];
+  state.focus = new Date(r.due.y, r.due.mo, r.due.d);
+  state.selectedKey = dayKeyFromYMD(r.due.y, r.due.mo, r.due.d);
+  if (state.view === "agenda") state.view = "month";   // agenda has no "focused day" to jump to
+  renderKeepFocus();
+}
+
+function compareRows(a, b) {
+  if (searchActive()) {
+    const ma = matchesSearch(a) ? 1 : 0, mb = matchesSearch(b) ? 1 : 0;
+    if (ma !== mb) return mb - ma;
+  }
+  if (state.sortByPriority && state.mapped.priority) {
+    const pa = priorityRank(a.priority), pb = priorityRank(b.priority);
+    let c = pa.num - pb.num;
+    if (c === 0) c = pa.str.localeCompare(pb.str);
+    if (state.sortDir === "desc") c = -c;
+    if (c !== 0) return c;
+  }
+  if (a.due.minuteOfDay !== b.due.minuteOfDay) return a.due.minuteOfDay - b.due.minuteOfDay;
+  return String(a.title).localeCompare(String(b.title));
+}
+
+function distinctValues(getter) {
+  const set = new Set();
+  for (const r of state.records) for (const v of getter(r)) set.add(v);
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
+}
+
+function recordsForKey(key) {
+  return state.records.filter(r => r.key === key && isVisible(r)).sort(compareRows);
+}
+
+/* ===================== Rendering ===================== */
+function render() {
+  if (!state.haveGrist && !state.demoMode) {
+    document.getElementById("toolbar").style.display = "none";
+    document.getElementById("meta").style.display = "none";
+    document.getElementById("body").innerHTML =
+      '<div class="notice"><h2>Open this inside Grist</h2><p>This page is a Grist custom widget. Add it to a Grist document via <b>Add Widget &rarr; Custom</b>, paste this page&rsquo;s URL, grant <b>Full</b> (read &amp; write) access, then map the columns in the creator panel.</p></div>';
+    return;
+  }
+  renderToolbar();
+  const body = document.getElementById("body");
+
+  if (!state.mapped.due || !state.mapped.title) {
+    document.getElementById("meta").innerHTML = "";
+    body.innerHTML =
+      '<div class="notice"><h2>Map your columns</h2><p>In the creator panel on the right, set the widget&rsquo;s column mappings:</p>'
+      + '<ol><li><b>Due Date</b> &mdash; a Date or DateTime column (required)</li>'
+      + '<li><b>Calendar Title</b> &mdash; the text shown for each deadline (required)</li>'
+      + '<li><b>Status</b>, <b>Description</b>, <b>Days Left</b>, <b>Category</b>, <b>Case</b>, <b>Assigned To</b>, <b>Priority</b> &mdash; optional</li></ol></div>';
     return;
   }
 
-  allEvents = records
-    .map(r => {
-      const mapped = grist.mapColumnNames(r, maps);
-      if (!mapped) return null;
-      const rawDate = mapped.EventDate;
-      const dateStr = parseGristDate(rawDate);
-      if (!dateStr) return null;
-      return {
-        id:          r.id,
-        date:        dateStr,
-        cat:         String(mapped.Category || 'Other').trim(),
-        desc:        String(mapped.Description || '').trim(),
-        caseId:      mapped.CaseID != null ? String(mapped.CaseID) : null,
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.date.localeCompare(b.date));
+  renderMeta();
+  if (state.view === "month") body.innerHTML = "", body.appendChild(renderMonth());
+  else if (state.view === "week") body.innerHTML = "", body.appendChild(renderWeek());
+  else if (state.view === "agenda") body.innerHTML = "", body.appendChild(renderAgenda());
+  else body.innerHTML = "", body.appendChild(renderDay());
+  adjustClamps();
+  renderUnplacedOverlay();
+}
 
-  /* Rebuild category filter set: keep existing selections, add new cats */
-  const newCats = new Set(allEvents.map(e => e.cat));
-  newCats.forEach(c => { if (!filterCats.has(c)) filterCats.add(c); });
-  /* Remove cats that no longer exist */
-  [...filterCats].forEach(c => { if (!newCats.has(c)) filterCats.delete(c); });
+// Unobtrusive panel listing deadlines that can't be placed (no usable due date), with a quick date fix.
+function renderUnplacedOverlay() {
+  const existing = document.querySelector(".unplaced-overlay");
+  if (existing) existing.remove();
+  if (!state.showUnplaced) return;
+  if (!state.unplaced.length) { state.showUnplaced = false; return; }
 
-  document.getElementById('recordCount').textContent =
-    allEvents.length + ' event' + (allEvents.length !== 1 ? 's' : '');
+  const overlay = el("div", "modal-overlay unplaced-overlay");
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) { state.showUnplaced = false; render(); } });
+  const modal = el("div", "modal");
+  modal.style.maxWidth = "460px";
+  modal.addEventListener("click", e => e.stopPropagation());
 
+  const head = el("div"); head.style.cssText = "display:flex;align-items:baseline;justify-content:space-between;gap:10px;";
+  head.appendChild(Object.assign(el("h3"), { textContent: "\u26A0 Needs attention" }));
+  const count = el("span", "small"); count.style.color = "var(--ink-faint)";
+  count.textContent = state.unplaced.length + " deadline" + (state.unplaced.length === 1 ? "" : "s");
+  head.appendChild(count);
+  modal.appendChild(head);
+  modal.appendChild(Object.assign(el("p", "ua-sub"), { textContent: "These aren't on the calendar because they have no usable due date. Set a date to place one, or open it to edit." }));
+
+  const list = el("div", "ua-list");
+  state.unplaced.forEach(u => list.appendChild(unplacedItem(u)));
+  modal.appendChild(list);
+
+  const acts = el("div", "modal-actions");
+  const done = el("button", "m-create"); done.textContent = "Close";
+  done.onclick = () => { state.showUnplaced = false; render(); };
+  acts.appendChild(done);
+  modal.appendChild(acts);
+
+  overlay.appendChild(modal);
+  document.getElementById("app").appendChild(overlay);
+}
+
+function unplacedItem(u) {
+  const item = el("div", "ua-item");
+  const titleStr = (u.title !== null && u.title !== undefined && String(u.title).trim() !== "") ? String(u.title) : "(untitled)";
+  const top = el("div", "ua-top");
+  top.appendChild(Object.assign(el("div", "ua-title"), { textContent: titleStr }));
+  const reason = el("span", "ua-reason");
+  reason.textContent = u.reason === "no-date" ? "No due date set" : "Due date couldn't be read";
+  top.appendChild(reason);
+  item.appendChild(top);
+
+  // Context chips
+  const chips = el("div", "ua-chips");
+  if (state.mapped.category) toList(u.category).forEach(c => { const t = el("span", "tag cat"); t.style.background = catColor(c); t.textContent = c; chips.appendChild(t); });
+  if (state.mapped.assignedTo) toList(u.assignedTo).forEach(a => chips.appendChild(Object.assign(el("span", "tag asg"), { textContent: a })));
+  if (state.mapped.status && u.status !== null && u.status !== undefined && String(u.status).trim() !== "") chips.appendChild(Object.assign(el("span", "tag"), { textContent: String(u.status) }));
+  if (chips.children.length) item.appendChild(chips);
+
+  // Quick fix: set a due date
+  const fix = el("div", "ua-fix");
+  const dIn = document.createElement("input"); dIn.type = "date"; dIn.value = iso(new Date());
+  const setB = el("button", "btn-small"); setB.textContent = "Set date";
+  setB.onclick = () => { if (!dIn.value) return; setDue(u.id, encodeDue(dIn.value, null)); };
+  const openB = el("button", "btn-small ghost"); openB.textContent = "Open in table";
+  openB.onclick = () => { selectInGrist(u.id); };
+  const delB = el("button", "btn-small ghost danger"); delB.textContent = "Delete";
+  delB.onclick = () => { deleteTask(u.id, u.title); };
+  fix.append(dIn, setB, openB, delB);
+  item.appendChild(fix);
+  return item;
+}
+function iso(d) { return pad4(d.getFullYear()) + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()); }
+
+// Reveal the "Show more" hint only on rows whose description preview is actually clipped.
+function adjustClamps() {
+  document.querySelectorAll(".row").forEach(row => {
+    const d = row.querySelector(".desc:not(.full)");
+    if (d && d.scrollHeight - d.clientHeight > 2) row.classList.add("truncated");
+  });
+}
+
+function renderMeta() {
+  const visible = state.records.filter(isVisible).length;
+  let txt = "<b>" + visible + "</b> deadline" + (visible === 1 ? "" : "s") + " shown";
+  const hiddenByFilter = state.records.length - visible;
+  if (hiddenByFilter > 0) txt += " &middot; " + hiddenByFilter + " hidden by filters";
+  if (state.mapped.status) txt += '<span class="lg"><i style="background:var(--green)"></i>complete / ready</span>';
+  if (state.mapped.priority || state.mapped.category) txt += '<span class="lg"><i style="background:var(--red)"></i>critical</span>';
+  const n = state.unplaced.length;
+  if (n > 0) txt += ' &middot; <a id="unplaced-link" class="needattn">\u26A0 ' + n + " need" + (n === 1 ? "s" : "") + " attention</a>";
+  const meta = document.getElementById("meta");
+  meta.innerHTML = txt;
+  const link = document.getElementById("unplaced-link");
+  if (link) link.onclick = (e) => { e.stopPropagation(); state.showUnplaced = !state.showUnplaced; render(); };
+}
+
+/* ---- Toolbar ---- */
+function renderKeepFocus() {
+  const prev = document.getElementById("calSearch");
+  const pos = prev ? prev.selectionStart : null;
   render();
+  const next = document.getElementById("calSearch");
+  if (next) { next.focus(); if (pos !== null) { try { next.setSelectionRange(pos, pos); } catch (e) {} } }
+}
+function renderToolbar() {
+  const tb = document.getElementById("toolbar");
+  tb.innerHTML = "";
+
+  const seg = el("div", "seg");
+  [["day","Day"],["week","Week"],["month","Month"],["agenda","Agenda"]].forEach(([v, label]) => {
+    const b = el("button", v === state.view ? "active" : "");
+    b.textContent = label;
+    b.onclick = () => { state.view = v; persist(); render(); };
+    seg.appendChild(b);
+  });
+  tb.appendChild(seg);
+
+  if (state.view !== "agenda") {
+    const nav = el("div", "nav");
+    const prev = el("button", "iconbtn"); prev.innerHTML = "&#8249;"; prev.title = "Previous";
+    prev.onclick = () => shift(-1);
+    const todayB = el("button", "todaybtn"); todayB.textContent = "Today";
+    todayB.onclick = () => { state.focus = stripTime(new Date()); state.selectedKey = dayKeyFromDate(state.focus); render(); };
+    const next = el("button", "iconbtn"); next.innerHTML = "&#8250;"; next.title = "Next";
+    next.onclick = () => shift(1);
+    nav.append(prev, todayB, next);
+    tb.appendChild(nav);
+  }
+
+  const period = el("div", "period");
+  period.textContent = periodLabel();
+  tb.appendChild(period);
+
+  const nb = el("button", "newbtn");
+  nb.innerHTML = "\uFF0B New";
+  nb.title = "Create a new deadline";
+  nb.onclick = (e) => { e.stopPropagation(); openNewTask(state.selectedKey); };
+  tb.appendChild(nb);
+
+  const ver = el("div", "version");
+  ver.textContent = "v" + WIDGET_VERSION;
+  ver.title = "Calendar widget version " + WIDGET_VERSION;
+  tb.appendChild(ver);
+
+  if (state.demoMode) {
+    const badge = el("div", "demo-badge");
+    badge.textContent = "DEMO DATA";
+    badge.title = "Sample deadlines for previewing the widget \u2014 open this page as a Grist custom widget to connect real data.";
+    tb.appendChild(badge);
+  }
+
+  const sw = el("div", "searchwrap");
+  const si = document.createElement("input");
+  si.type = "text"; si.id = "calSearch"; si.className = "searchinput";
+  si.placeholder = "Search cases, titles, notes\u2026 (Enter to jump)";
+  si.value = state.search;
+  si.oninput = () => { state.search = si.value; state.searchCycleIndex = null; renderKeepFocus(); };
+  si.onkeydown = (e) => {
+    if (e.key === "Enter") { e.preventDefault(); cycleSearchMatch(e.shiftKey ? -1 : 1); }
+  };
+  sw.appendChild(si);
+  if (searchActive()) {
+    const datedMatches = searchMatchesChrono();
+    const undatedMatches = state.unplaced.filter(r => isVisible(r) && matchesSearch(r));
+    const totalMatches = datedMatches.length + undatedMatches.length;
+    const countLabel = (typeof state.searchCycleIndex === "number" && datedMatches.length)
+      ? "Match " + (state.searchCycleIndex + 1) + " of " + datedMatches.length
+      : totalMatches + " match" + (totalMatches === 1 ? "" : "es");
+    sw.appendChild(Object.assign(el("span", "search-count"), { textContent: countLabel }));
+    if (datedMatches.length > 1) {
+      const prevB = el("button", "searchnav"); prevB.innerHTML = "&#8249;"; prevB.title = "Previous match (Shift+Enter)";
+      prevB.onclick = (e) => { e.stopPropagation(); cycleSearchMatch(-1); };
+      const nextB = el("button", "searchnav"); nextB.innerHTML = "&#8250;"; nextB.title = "Next match (Enter)";
+      nextB.onclick = (e) => { e.stopPropagation(); cycleSearchMatch(1); };
+      sw.append(prevB, nextB);
+    }
+    const x = el("button", "searchclear"); x.textContent = "\u2715"; x.title = "Clear search";
+    x.onclick = () => { state.search = ""; state.searchCycleIndex = null; render(); };
+    sw.appendChild(x);
+  }
+  tb.appendChild(sw);
+
+  tb.appendChild(el("div", "spacer"));
+
+  if (state.mapped.category) tb.appendChild(filterDropdown("cat", "Categories", state.hiddenCats, recCats));
+  if (state.mapped.assignedTo) tb.appendChild(filterDropdown("asg", "Assigned", state.hiddenAsgs, recAsgs));
+  if (state.mapped.status) tb.appendChild(filterDropdown("status", "Status", state.hiddenStatuses, recStatus));
+  tb.appendChild(sortDropdown());
+  if (state.mapped.category) tb.appendChild(flagsDropdown());
+  tb.appendChild(settingsDropdown());
+}
+
+function shift(dir) {
+  if (state.view === "month") state.focus = new Date(state.focus.getFullYear(), state.focus.getMonth() + dir, 1);
+  else if (state.view === "week") state.focus = addDays(state.focus, 7 * dir);
+  else { state.focus = addDays(state.focus, dir); state.selectedKey = dayKeyFromDate(state.focus); }
+  render();
+}
+
+function periodLabel() {
+  const f = state.focus;
+  if (state.view === "agenda") return "Pending Deadlines";
+  if (state.view === "month") return MONTHS[f.getMonth()] + " " + f.getFullYear();
+  if (state.view === "day") return DOW[f.getDay()] + ", " + MONTHS[f.getMonth()] + " " + f.getDate() + ", " + f.getFullYear();
+  const s = startOfWeek(f);
+  let e = addDays(s, 6);
+  if (state.hideWeekends) {
+    // The weekend's position within the 7-day span shifts with weekStartDay
+    // (e.g. a Wednesday-start week has the weekend in the middle, not the end),
+    // so find the latest actual weekday rather than assuming a fixed offset.
+    for (let k = 6; k >= 0; k--) {
+      const cand = addDays(s, k);
+      if (cand.getDay() !== 0 && cand.getDay() !== 6) { e = cand; break; }
+    }
+  }
+  if (s.getMonth() === e.getMonth()) return MONTHS[s.getMonth()] + " " + s.getDate() + "\u2013" + e.getDate() + ", " + s.getFullYear();
+  return MONTHS[s.getMonth()].slice(0,3) + " " + s.getDate() + " \u2013 " + MONTHS[e.getMonth()].slice(0,3) + " " + e.getDate() + ", " + e.getFullYear();
+}
+
+function popHeader(titleText) {
+  const h = el("div", "pophead");
+  h.appendChild(Object.assign(el("h4"), { textContent: titleText }));
+  const x = el("button", "popclose"); x.innerHTML = "\u00D7"; x.title = "Close";
+  x.onclick = (e) => { e.stopPropagation(); state.openPopover = null; render(); };
+  h.appendChild(x);
+  return h;
+}
+
+function filterDropdown(id, label, hiddenSet, getter) {
+  const wrap = el("div", "dropwrap");
+  const values = distinctValues(getter);
+  const activeCount = values.filter(v => !hiddenSet.has(v)).length;
+  const btn = el("button", "dropbtn");
+  btn.innerHTML = esc(label);
+  if (hiddenSet.size > 0) btn.innerHTML += ' <span class="dot">' + activeCount + "/" + values.length + "</span>";
+  btn.innerHTML += ' <span class="caret">&#9662;</span>';
+  btn.onclick = (e) => { e.stopPropagation(); state.openPopover = state.openPopover === id ? null : id; render(); };
+  wrap.appendChild(btn);
+
+  if (state.openPopover === id) {
+    const pop = el("div", "popover");
+    pop.onclick = (e) => e.stopPropagation();
+    pop.appendChild(popHeader("Show " + label.toLowerCase()));
+    const list = el("div", "poplist");
+    values.forEach(v => {
+      const r = el("label", "poprow");
+      const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = !hiddenSet.has(v);
+      cb.onchange = () => { if (cb.checked) hiddenSet.delete(v); else hiddenSet.add(v); persist(); render(); };
+      r.appendChild(cb);
+      if (id === "cat" && v !== NO_CAT) {
+        const sw = el("span", "swatch"); sw.style.background = catColor(v); r.appendChild(sw);
+      }
+      r.appendChild(Object.assign(el("span", "label"), { textContent: v }));
+      list.appendChild(r);
+    });
+    pop.appendChild(list);
+    const acts = el("div", "popactions");
+    const all = el("button"); all.textContent = "Select all";
+    all.onclick = () => { values.forEach(v => hiddenSet.delete(v)); persist(); render(); };
+    const none = el("button"); none.textContent = "Clear";
+    none.onclick = () => { values.forEach(v => hiddenSet.add(v)); persist(); render(); };
+    acts.append(all, none);
+    pop.appendChild(acts);
+    wrap.appendChild(pop);
+  }
+  return wrap;
+}
+
+function sortDropdown() {
+  const wrap = el("div", "dropwrap");
+  const btn = el("button", "dropbtn");
+  if (!state.mapped.priority) btn.disabled = true;
+  btn.innerHTML = "Sort" + (state.sortByPriority && state.mapped.priority ? ' <span class="dot">priority</span>' : "") + ' <span class="caret">&#9662;</span>';
+  btn.onclick = (e) => { e.stopPropagation(); state.openPopover = state.openPopover === "sort" ? null : "sort"; render(); };
+  wrap.appendChild(btn);
+
+  if (state.openPopover === "sort" && state.mapped.priority) {
+    const pop = el("div", "popover");
+    pop.onclick = (e) => e.stopPropagation();
+    pop.appendChild(popHeader("Sort each day"));
+
+    const toggle = el("label", "poprow");
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = state.sortByPriority;
+    cb.onchange = () => { state.sortByPriority = cb.checked; persist(); render(); };
+    toggle.append(cb, Object.assign(el("span", "label"), { textContent: "Sort by priority" }));
+    pop.appendChild(toggle);
+
+    [["asc","High \u2192 Low"],["desc","Low \u2192 High"]].forEach(([val, lbl]) => {
+      const r = el("label", "radio-row");
+      const rb = document.createElement("input"); rb.type = "radio"; rb.name = "sortdir";
+      rb.checked = state.sortDir === val; rb.disabled = !state.sortByPriority;
+      rb.onchange = () => { state.sortDir = val; persist(); render(); };
+      r.append(rb, Object.assign(el("span", "label"), { textContent: lbl }));
+      pop.appendChild(r);
+    });
+    const hint = el("div"); hint.style.cssText = "font-size:11px;color:var(--ink-faint);padding:6px;border-top:1px solid var(--line);margin-top:4px;";
+    hint.textContent = "When off, days sort by time, then title.";
+    pop.appendChild(hint);
+    wrap.appendChild(pop);
+  }
+  return wrap;
+}
+
+function flagsDropdown() {
+  const wrap = el("div", "dropwrap");
+  const btn = el("button", "dropbtn");
+  btn.innerHTML = "\u2691 Flags" + (state.redCats.size ? ' <span class="dot">' + state.redCats.size + "</span>" : "") + ' <span class="caret">&#9662;</span>';
+  btn.onclick = (e) => { e.stopPropagation(); state.openPopover = state.openPopover === "flags" ? null : "flags"; render(); };
+  wrap.appendChild(btn);
+
+  if (state.openPopover === "flags") {
+    const pop = el("div", "popover");
+    pop.onclick = (e) => e.stopPropagation();
+    pop.appendChild(popHeader("Highlight red (critical categories)"));
+    const list = el("div", "poplist");
+    const cats = distinctValues(recCats).filter(c => c !== NO_CAT);
+    if (!cats.length) list.appendChild(Object.assign(el("div", "empty"), { textContent: "No categories found yet." }));
+    cats.forEach(c => {
+      const r = el("label", "poprow");
+      const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = state.redCats.has(c);
+      cb.onchange = () => { if (cb.checked) state.redCats.add(c); else state.redCats.delete(c); persist(); render(); };
+      const sw = el("span", "swatch"); sw.style.background = catColor(c);
+      r.append(cb, sw, Object.assign(el("span", "label"), { textContent: c }));
+      list.appendChild(r);
+    });
+    pop.appendChild(list);
+    const hint = el("div"); hint.style.cssText = "font-size:11px;color:var(--ink-faint);padding:6px;border-top:1px solid var(--line);margin-top:4px;";
+    hint.textContent = "High / important priority deadlines are always red. Completed deadlines are always green.";
+    pop.appendChild(hint);
+    wrap.appendChild(pop);
+  }
+  return wrap;
+}
+
+function settingsToggleRow(label, hint, checked, onChange) {
+  const row = el("label", "poprow settings-row");
+  const cb = document.createElement("input"); cb.type = "checkbox";
+  cb.checked = checked;
+  cb.onchange = () => onChange(cb.checked);
+  const text = el("div", "settings-text");
+  text.appendChild(Object.assign(el("div", "settings-label"), { textContent: label }));
+  text.appendChild(Object.assign(el("div", "settings-hint"), { textContent: hint }));
+  row.append(cb, text);
+  return row;
+}
+
+// options: [[value, label], ...]
+function settingsSelectRow(label, hint, options, value, onChange) {
+  const row = el("div", "poprow settings-row settings-selectrow");
+  const text = el("div", "settings-text");
+  text.appendChild(Object.assign(el("div", "settings-label"), { textContent: label }));
+  if (hint) text.appendChild(Object.assign(el("div", "settings-hint"), { textContent: hint }));
+  const sel = document.createElement("select"); sel.className = "settings-select";
+  options.forEach(([v, l]) => {
+    const o = document.createElement("option"); o.value = String(v); o.textContent = l;
+    if (String(v) === String(value)) o.selected = true;
+    sel.appendChild(o);
+  });
+  sel.onchange = () => onChange(sel.value);
+  text.appendChild(sel);
+  row.appendChild(text);
+  return row;
+}
+
+function settingsDropdown() {
+  const wrap = el("div", "dropwrap");
+  const btn = el("button", "iconbtn");
+  btn.innerHTML = "\u2699\uFE0F";
+  btn.title = "Widget settings";
+  btn.onclick = (e) => { e.stopPropagation(); state.openPopover = state.openPopover === "settings" ? null : "settings"; render(); };
+  wrap.appendChild(btn);
+
+  if (state.openPopover === "settings") {
+    const pop = el("div", "popover settings-pop");
+    pop.onclick = (e) => e.stopPropagation();
+    pop.appendChild(popHeader("Settings"));
+    const list = el("div", "poplist");
+
+    list.appendChild(settingsSelectRow(
+      "Start week on",
+      "Which day begins each week in Week view and the Month grid.",
+      DOW.map((name, idx) => [idx, name]),
+      state.weekStartDay,
+      (v) => { state.weekStartDay = parseInt(v, 10); persist(); render(); }
+    ));
+
+    list.appendChild(settingsToggleRow(
+      "Hide weekends",
+      "Omit Saturday and Sunday columns from Month and Week view.",
+      state.hideWeekends,
+      (checked) => { state.hideWeekends = checked; persist(); render(); }
+    ));
+
+    list.appendChild(settingsSelectRow(
+      "Deadlines shown per day",
+      "How many deadlines a Month-view cell shows before collapsing the rest into \u201c+N more.\u201d",
+      [[2,"2"],[3,"3"],[4,"4"],[5,"5"],[6,"6"]],
+      state.maxChipsPerDay,
+      (v) => { state.maxChipsPerDay = parseInt(v, 10); persist(); render(); }
+    ));
+
+    list.appendChild(settingsSelectRow(
+      "Time format",
+      "How times are displayed for timed deadlines.",
+      [["12h","12-hour (2:30 PM)"],["24h","24-hour (14:30)"]],
+      state.timeFormat,
+      (v) => { state.timeFormat = v; persist(); render(); }
+    ));
+
+    list.appendChild(settingsToggleRow(
+      "Show deadlines from other months",
+      "In Month view, include deadlines that fall on the greyed-out leading/trailing days from the previous or next month.",
+      state.showOutsideDeadlines,
+      (checked) => { state.showOutsideDeadlines = checked; persist(); render(); }
+    ));
+
+    list.appendChild(settingsToggleRow(
+      "Search hides non-matches",
+      "When searching, hide deadlines that don't match instead of just moving them lower in the list.",
+      state.searchFiltersOut,
+      (checked) => { state.searchFiltersOut = checked; persist(); render(); }
+    ));
+
+    if (state.mapped.assignedTo) {
+      list.appendChild(settingsSelectRow(
+        "Color deadlines by",
+        "\u201cCategory\u201d is the current behavior. \u201cAssigned person\u201d colors each deadline by who's on it \u2014 using that person's color from the Deadlines tab if you've set one there, split into equal bands for deadlines with more than one person. (Completed and critical deadlines still show green/red either way.)",
+        [["category", "Category"], ["assignee", "Assigned person"]],
+        state.taskColorMode,
+        (v) => { state.taskColorMode = v; persist(); render(); }
+      ));
+    }
+
+    if (state.mapped.caseRef) {
+      list.appendChild(settingsToggleRow(
+        "Highlight related deadlines",
+        "When you click or start dragging a deadline, highlight every other deadline for the same case \u2014 so you can spot one you'd be moving past.",
+        state.caseHighlightEnabled,
+        (checked) => {
+          state.caseHighlightEnabled = checked;
+          if (!checked) state.highlightCase = null;   // turning it off also clears any active highlight
+          persist(); render();
+        }
+      ));
+    }
+
+    pop.appendChild(list);
+    wrap.appendChild(pop);
+  }
+  return wrap;
+}
+
+/* ---- Deadline row ---- */
+function delBtn(r) {
+  const b = el("button", "delbtn");
+  b.innerHTML = "\u{1F5D1}";
+  b.title = "Delete this deadline";
+  b.onclick = (e) => { e.stopPropagation(); deleteTask(r.id, r.title); };
+  return b;
+}
+
+function caseHighlightOn() { return state.caseHighlightEnabled && state.mapped.caseRef; }
+
+function rowEl(r, compact) {
+  const kind = classify(r);
+  const expanded = state.expandedRows.has(r.id);
+  const editingAsg = state.editingAsgRow === r.id;
+  const editingDesc = state.editingDescRow === r.id;
+  const editingCat = state.editingCatRow === r.id;
+  const editingPri = state.editingPriRow === r.id;
+  const related = caseHighlightOn() && r.caseLabel && r.caseLabel === state.highlightCase;
+  const matched = searchActive() && matchesSearch(r);
+  const row = el("div", "row " + visualKind(kind) + (compact ? " compactrow" : "") + (expanded ? " expanded" : "") + (related ? " case-highlight" : "") + (matched ? " search-match" : ""));
+  applyTaskColor(row, r, kind);
+  if (caseHighlightOn() && r.caseLabel) row.dataset.case = r.caseLabel;
+  makeDraggable(row, r);
+
+  row.appendChild(dueCell(r, compact));
+
+  const main = el("div", "main");
+  const title = el("div", "title" + (kind === "complete" ? " done" : ""));
+  title.textContent = (kind === "complete" ? "\u2713 " : "") + (r.title || "(untitled)");
+  main.appendChild(title);
+
+  const tags = el("div", "tags");
+  if (state.mapped.category && !editingCat) {
+    recCats(r).forEach(c => {
+      if (c === NO_CAT) return;
+      const t = el("span", "tag cat"); t.style.background = catColor(c); t.textContent = c; tags.appendChild(t);
+    });
+    const hasCat = recCats(r)[0] !== NO_CAT;
+    tags.appendChild(makeEditChip(hasCat, "\uFF0B category", "Edit category", () => openInlineEditor("cat", r.id)));
+  }
+  if (state.mapped.assignedTo && !editingAsg) {
+    recAsgs(r).forEach(a => {
+      if (a === UNASSIGNED) return;
+      tags.appendChild(Object.assign(el("span", "tag asg"), { textContent: a }));
+    });
+    const hasAsg = recAsgs(r)[0] !== UNASSIGNED;
+    tags.appendChild(makeEditChip(hasAsg, "\uFF0B assign", "Edit who's assigned", () => openInlineEditor("asg", r.id)));
+  }
+  if (state.mapped.priority && !editingPri) {
+    const important = isImportant(r.priority);
+    const hasPri = r.priority !== null && r.priority !== undefined && r.priority !== "" && r.priority !== false;
+    if (state.priIsBool) {
+      if (important) tags.appendChild(Object.assign(el("span", "tag pri imp"), { textContent: "Important!" }));
+    } else if (hasPri) {
+      tags.appendChild(Object.assign(el("span", "tag pri" + (important ? " imp" : "")), { textContent: "\u25B2 " + r.priority }));
+    }
+    const showVal = state.priIsBool ? important : hasPri;
+    tags.appendChild(makeEditChip(showVal, "\uFF0B priority", "Edit priority", () => openInlineEditor("pri", r.id)));
+  }
+  if (tags.children.length) main.appendChild(tags);
+
+  if (state.mapped.category && editingCat) main.appendChild(categoryEditor(r));
+  if (state.mapped.assignedTo && editingAsg) main.appendChild(assigneeEditor(r));
+  if (state.mapped.priority && editingPri) main.appendChild(priorityEditor(r));
+
+  // Description: editor, or expandable preview, or "+ Add note"
+  const hasDesc = r.description !== null && r.description !== undefined && String(r.description).trim() !== "";
+  if (state.mapped.description) {
+    if (editingDesc) {
+      main.appendChild(descEditor(r));
+    } else if (hasDesc) {
+      const desc = el("div", "desc" + (expanded ? " full" : ""));
+      desc.textContent = String(r.description);
+      main.appendChild(desc);
+      main.appendChild(Object.assign(el("div", "descmore"), { textContent: expanded ? "Show less \u25B4" : "Show more \u25BE" }));
+      if (expanded) {
+        const ed = el("span", "editlink"); ed.textContent = "Edit note";
+        ed.onclick = (e) => { e.stopPropagation(); openInlineEditor("desc", r.id); };
+        main.appendChild(ed);
+      }
+    } else {
+      const add = el("span", "addnote"); add.textContent = "\uFF0B Add note";
+      add.onclick = (e) => { e.stopPropagation(); openInlineEditor("desc", r.id); };
+      main.appendChild(add);
+    }
+  }
+  row.appendChild(main);
+
+  if (state.mapped.status) row.appendChild(statusControl(r, kind));
+  row.appendChild(delBtn(r));
+
+  row.onclick = (e) => {
+    e.stopPropagation();
+    if (hasDesc && !editingDesc) {
+      if (expanded) state.expandedRows.delete(r.id); else state.expandedRows.add(r.id);
+    }
+    if (caseHighlightOn() && r.caseLabel) {
+      state.highlightCase = (state.highlightCase === r.caseLabel) ? null : r.caseLabel;
+    }
+    render();
+    selectInGrist(r.id);
+  };
+  return row;
+}
+
+function makeEditChip(hasValue, emptyLabel, tip, onClick) {
+  const c = el("span", "tag editchip");
+  c.textContent = hasValue ? "\u270E" : emptyLabel;
+  c.title = tip;
+  c.onclick = (e) => { e.stopPropagation(); onClick(); };
+  return c;
+}
+
+// Clear every transient popover/inline-editor state.
+function clearTransient() {
+  state.openDateRow = null; state.openStatusRow = null;
+  state.editingDescRow = null; state.editingAsgRow = null;
+  state.editingCatRow = null; state.editingPriRow = null;
+}
+
+// Open one inline editor at a time, closing the other transient popovers.
+function openInlineEditor(which, rowId) {
+  clearTransient();
+  if (which === "desc") state.editingDescRow = rowId;
+  else if (which === "asg") state.editingAsgRow = rowId;
+  else if (which === "cat") state.editingCatRow = rowId;
+  else if (which === "pri") state.editingPriRow = rowId;
+  render();
+}
+
+function descEditor(r) {
+  const ed = el("div", "fieldedit");
+  ["click", "mousedown"].forEach(ev => ed.addEventListener(ev, e => e.stopPropagation()));
+  const ta = document.createElement("textarea");
+  ta.value = (r.description !== null && r.description !== undefined) ? String(r.description) : "";
+  ta.placeholder = "Add a note\u2026";
+  ed.appendChild(ta);
+  const acts = el("div", "fe-actions");
+  const save = el("button", "fe-save"); save.textContent = "Save";
+  save.onclick = () => { state.editingDescRow = null; setDescription(r.id, ta.value); render(); };
+  const cancel = el("button", "fe-cancel"); cancel.textContent = "Cancel";
+  cancel.onclick = () => { state.editingDescRow = null; render(); };
+  acts.append(save, cancel); ed.appendChild(acts);
+  return ed;
+}
+
+function assigneeEditor(r) {
+  const ed = el("div", "fieldedit");
+  ["click", "mousedown"].forEach(ev => ed.addEventListener(ev, e => e.stopPropagation()));
+  const initial = recAsgs(r).filter(a => a !== UNASSIGNED);
+  const known = distinctValues(recAsgs).filter(v => v !== UNASSIGNED);
+  const picker = buildTagPicker(initial, state.asgMulti, known, "name");
+  ed.appendChild(picker.element);
+  const acts = el("div", "fe-actions");
+  const save = el("button", "fe-save"); save.textContent = "Save";
+  save.onclick = () => { state.editingAsgRow = null; setAssignees(r.id, picker.get()); render(); };
+  const cancel = el("button", "fe-cancel"); cancel.textContent = "Cancel";
+  cancel.onclick = () => { state.editingAsgRow = null; render(); };
+  acts.append(save, cancel); ed.appendChild(acts);
+  return ed;
+}
+
+function categoryEditor(r) {
+  const ed = el("div", "fieldedit");
+  ["click", "mousedown"].forEach(ev => ed.addEventListener(ev, e => e.stopPropagation()));
+  const initial = recCats(r).filter(c => c !== NO_CAT);
+  const known = distinctValues(recCats).filter(c => c !== NO_CAT);
+  const picker = buildTagPicker(initial, state.catMulti, known, "category");
+  ed.appendChild(picker.element);
+  const acts = el("div", "fe-actions");
+  const save = el("button", "fe-save"); save.textContent = "Save";
+  save.onclick = () => { state.editingCatRow = null; setCategory(r.id, picker.get()); render(); };
+  const cancel = el("button", "fe-cancel"); cancel.textContent = "Cancel";
+  cancel.onclick = () => { state.editingCatRow = null; render(); };
+  acts.append(save, cancel); ed.appendChild(acts);
+  return ed;
+}
+
+function priorityEditor(r) {
+  const ed = el("div", "fieldedit");
+  ["click", "mousedown"].forEach(ev => ed.addEventListener(ev, e => e.stopPropagation()));
+
+  if (state.priIsBool) {
+    let on = isImportant(r.priority);
+    const picker = el("div", "picker");
+    const chip = el("div", "pchip" + (on ? " sel" : ""));
+    chip.textContent = "Important!";
+    chip.onclick = (e) => { e.stopPropagation(); on = !on; chip.classList.toggle("sel", on); };
+    picker.appendChild(chip);
+    ed.appendChild(picker);
+    const acts = el("div", "fe-actions");
+    const save = el("button", "fe-save"); save.textContent = "Save";
+    save.onclick = () => { state.editingPriRow = null; writeField(r.id, state.cols.Priority, on, "priority"); render(); };
+    const cancel = el("button", "fe-cancel"); cancel.textContent = "Cancel";
+    cancel.onclick = () => { state.editingPriRow = null; render(); };
+    acts.append(save, cancel); ed.appendChild(acts);
+    return ed;
+  }
+
+  const has = r.priority !== null && r.priority !== undefined && r.priority !== "";
+  const initial = has ? [String(r.priority)] : [];
+  const known = distinctValues(rr => {
+    const v = rr.priority; return (v === null || v === undefined || v === "") ? [] : [String(v)];
+  });
+  const picker = buildTagPicker(initial, false, known, "priority");
+  ed.appendChild(picker.element);
+  const acts = el("div", "fe-actions");
+  const save = el("button", "fe-save"); save.textContent = "Save";
+  save.onclick = () => { state.editingPriRow = null; setPriority(r.id, picker.get()); render(); };
+  const cancel = el("button", "fe-cancel"); cancel.textContent = "Cancel";
+  cancel.onclick = () => { state.editingPriRow = null; render(); };
+  acts.append(save, cancel); ed.appendChild(acts);
+  return ed;
+}
+
+// Self-contained multi/single tag picker; manages its own selection without a global re-render.
+function buildTagPicker(initial, multi, known, noun) {
+  const wrap = el("div", "picker-wrap");
+  const picker = el("div", "picker");
+  const selected = new Set(initial || []);
+  const all = Array.from(new Set((known || []).concat(Array.from(selected))));
+  function sync() { picker.querySelectorAll(".pchip").forEach(c => c.classList.toggle("sel", selected.has(c.textContent))); }
+  function chipFor(name) {
+    const chip = el("div", "pchip" + (selected.has(name) ? " sel" : ""));
+    chip.textContent = name;
+    chip.onclick = (e) => {
+      e.stopPropagation();
+      if (selected.has(name)) selected.delete(name);
+      else { if (!multi) selected.clear(); selected.add(name); }
+      sync();
+    };
+    return chip;
+  }
+  all.forEach(n => picker.appendChild(chipFor(n)));
+  wrap.appendChild(picker);
+  const add = el("div", "padd");
+  const inp = document.createElement("input"); inp.type = "text";
+  inp.placeholder = multi ? ("Add a " + (noun || "value") + "\u2026") : ("Or type a " + (noun || "value") + "\u2026");
+  const btn = el("button"); btn.textContent = "Add";
+  const doAdd = () => {
+    const v = inp.value.trim(); if (!v) return;
+    if (!multi) selected.clear();
+    selected.add(v);
+    const exists = Array.prototype.some.call(picker.querySelectorAll(".pchip"), c => c.textContent === v);
+    if (!exists) picker.appendChild(chipFor(v));
+    sync(); inp.value = "";
+  };
+  btn.onclick = (e) => { e.stopPropagation(); doAdd(); };
+  inp.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); doAdd(); } };
+  add.append(inp, btn); wrap.appendChild(add);
+  return { element: wrap, get: () => Array.from(selected) };
+}
+
+// Clickable status pill with a dropdown that writes the chosen status back to Grist.
+function statusControl(r, kind) {
+  const wrap = el("div", "statuswrap");
+  const has = r.status !== null && r.status !== undefined && String(r.status).trim() !== "";
+  const pill = el("button", "statuspill" + (kind === "complete" || kind === "ready" ? " is-complete" : ""));
+  pill.innerHTML = esc(has ? String(r.status) : "Set status") + ' <span class="pcaret">&#9662;</span>';
+  pill.onclick = (e) => { e.stopPropagation(); const wasOpen = state.openStatusRow === r.id; clearTransient(); state.openStatusRow = wasOpen ? null : r.id; render(); };
+  wrap.appendChild(pill);
+
+  if (state.openStatusRow === r.id) {
+    const menu = el("div", "statusmenu");
+    menu.onclick = (e) => e.stopPropagation();
+    const opts = statusOptions();
+    if (!opts.length) menu.appendChild(Object.assign(el("div", "empty"), { textContent: "No status values yet." }));
+    opts.forEach(s => {
+      const item = el("button", "statusitem" + (String(r.status) === s ? " current" : ""));
+      item.textContent = s;
+      item.onclick = () => { state.openStatusRow = null; setStatus(r.id, s); render(); };
+      menu.appendChild(item);
+    });
+    if (has) {
+      const clr = el("button", "statusitem clear"); clr.textContent = "Clear status";
+      clr.onclick = () => { state.openStatusRow = null; setStatus(r.id, null); render(); };
+      menu.appendChild(clr);
+    }
+    wrap.appendChild(menu);
+  }
+  return wrap;
+}
+
+// Distinct status values currently present in the table (used to populate the menu).
+function statusOptions() {
+  const set = new Set();
+  for (const r of state.records) {
+    const s = r.status;
+    if (s !== null && s !== undefined && String(s).trim() !== "") set.add(String(s));
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
+}
+
+function pad2(n) { return String(n).padStart(2, "0"); }
+function pad4(n) { return String(n).padStart(4, "0"); }
+function fmtShortDate(due) {
+  let s = MONTHS[due.mo].slice(0, 3) + " " + due.d;
+  if (due.y !== (new Date()).getFullYear()) s += ", " + due.y;
+  return s;
+}
+// Add N days to the date currently in the picker (so offsets stack and build on the deadline's date).
+function shiftDateInput(input, n) {
+  const base = input.value ? input.value.split("-").map(Number) : null;
+  const d = base ? new Date(base[0], base[1] - 1, base[2]) : stripTime(new Date());
+  d.setDate(d.getDate() + n);
+  input.value = pad4(d.getFullYear()) + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+}
+
+// Encode a chosen date/time back to a Grist timestamp (UTC midnight for Date, local moment for DateTime).
+function encodeDue(dateStr, timeStr) {
+  const p = dateStr.split("-").map(Number);
+  const Y = p[0], M = p[1], D = p[2];
+  if (state.dueIsDateTime) {
+    let h = 9, mi = 0;
+    if (timeStr) { const t = timeStr.split(":").map(Number); h = t[0]; mi = t[1]; }
+    return new Date(Y, M - 1, D, h, mi, 0, 0).getTime() / 1000;
+  }
+  return Date.UTC(Y, M - 1, D) / 1000;
+}
+
+// Clickable due time/date that opens an inline editor writing the new date back to Grist.
+function dueCell(r, compact) {
+  const wrap = el("div", "duewrap");
+  let label;
+  if (r.due.timeStr) label = r.due.timeStr;       // timed: always show the time
+  else if (compact) label = "";                   // week chip: day is already in the column header
+  else label = fmtShortDate(r.due);               // list views: show the assigned date
+  const btn = el("button", "time editable" + (label ? "" : " bare"));
+  btn.title = "Click to change the due date";
+  btn.innerHTML = (label ? esc(label) + " " : "") + '<span class="pen">\u270E</span>';
+  btn.onclick = (e) => {
+    e.stopPropagation();
+    const wasOpen = state.openDateRow === r.id;
+    clearTransient();
+    state.openDateRow = wasOpen ? null : r.id;
+    render();
+  };
+  wrap.appendChild(btn);
+  if (state.mapped.daysLeft && r.daysLeft !== null && r.daysLeft !== undefined && r.daysLeft !== "") {
+    const dl = Number(r.daysLeft);
+    if (Number.isFinite(dl)) {
+      const n = Math.round(dl);
+      let text, cls;
+      if (n === 0) { text = "due today"; cls = "dl-today"; }
+      else if (n > 0) { text = n + " day" + (n === 1 ? "" : "s") + " left"; cls = "dl-future"; }
+      else { const a = Math.abs(n); text = a + " day" + (a === 1 ? "" : "s") + " overdue"; cls = "dl-over"; }
+      wrap.appendChild(Object.assign(el("div", "daysleft " + cls), { textContent: text }));
+    }
+  }
+  if (state.openDateRow === r.id) wrap.appendChild(dateEditor(r));
+  return wrap;
+}
+
+function dateEditor(r) {
+  const ed = el("div", "dateeditor");
+  ["click", "mousedown"].forEach(ev => ed.addEventListener(ev, e => e.stopPropagation()));
+
+  const dateIn = document.createElement("input");
+  dateIn.type = "date";
+  dateIn.value = pad4(r.due.y) + "-" + pad2(r.due.mo + 1) + "-" + pad2(r.due.d);
+  ed.appendChild(dateIn);
+
+  let timeIn = null;
+  if (state.dueIsDateTime) {
+    timeIn = document.createElement("input");
+    timeIn.type = "time";
+    const mod = r.due.minuteOfDay >= 0 ? r.due.minuteOfDay : 9 * 60; // default 9:00 AM
+    timeIn.value = pad2(Math.floor(mod / 60)) + ":" + pad2(mod % 60);
+    ed.appendChild(timeIn);
+  }
+
+  // Relative offsets, applied to whatever date is currently in the picker (composable).
+  const sc = el("div", "de-shortcuts");
+  [["+1d", 1, "Next day"], ["+7d", 7, "In 7 days"], ["+14d", 14, "In 14 days"], ["+30d", 30, "In 30 days"]].forEach(([lbl, n, tip]) => {
+    const b = el("button"); b.textContent = lbl; b.title = tip;
+    b.onclick = () => shiftDateInput(dateIn, n);
+    sc.appendChild(b);
+  });
+  ed.appendChild(sc);
+
+  const acts = el("div", "de-actions");
+  const save = el("button", "de-save"); save.textContent = "Save";
+  save.onclick = () => {
+    if (!dateIn.value) return;
+    const ts = encodeDue(dateIn.value, timeIn ? timeIn.value : null);
+    state.openDateRow = null;
+    setDue(r.id, ts);
+    render();
+  };
+  const cancel = el("button", "de-cancel"); cancel.textContent = "Cancel";
+  cancel.onclick = () => { state.openDateRow = null; render(); };
+  acts.append(save, cancel);
+  ed.appendChild(acts);
+  return ed;
+}
+
+function dayListEl(key, compact) {
+  const recs = recordsForKey(key);
+  if (!recs.length) { const e = el("div", "empty"); e.textContent = "No deadlines."; return e; }
+  const frag = document.createDocumentFragment();
+  recs.forEach(r => frag.appendChild(rowEl(r, compact)));
+  return frag;
+}
+
+/* ---- Agenda: a flat, ranked list of pending deadlines ----
+   Ranking mirrors the Work Queue widgets' discipline (band dominates, then
+   priority, then date) but is computed entirely from the due date, so it
+   works even without the optional Days-to-Complete-style fields those
+   widgets use. Band always wins; priority only breaks ties within a band. */
+function daysUntilDue(r) {
+  if (!r.due) return null;
+  const target = new Date(r.due.y, r.due.mo, r.due.d);
+  return Math.round((target - stripTime(new Date())) / 86400000);
+}
+const AGENDA_BANDS = ["No date", "Upcoming", "Due soon", "Overdue"];
+function agendaBand(r) {
+  const dl = daysUntilDue(r);
+  if (dl === null) return 0;       // undated -> lowest, sorts last
+  if (dl < 0) return 3;            // overdue -> highest
+  if (dl <= 3) return 2;           // due today through 3 days out
+  return 1;                        // everything else upcoming
+}
+function agendaCompare(a, b) {
+  if (searchActive()) {
+    const ma = matchesSearch(a) ? 1 : 0, mb = matchesSearch(b) ? 1 : 0;
+    if (ma !== mb) return mb - ma;                                   // a search match always outranks a non-match
+  }
+  const ba = agendaBand(a), bb = agendaBand(b);
+  if (ba !== bb) return bb - ba;                                   // band dominates
+  const pa = (state.mapped.priority && isImportant(a.priority)) ? 1 : 0;
+  const pb = (state.mapped.priority && isImportant(b.priority)) ? 1 : 0;
+  if (pa !== pb) return pb - pa;                                   // High priority breaks ties within a band
+  const da = daysUntilDue(a), db = daysUntilDue(b);
+  if (da === null && db === null) return String(a.title || "").localeCompare(String(b.title || ""));
+  if (da === null) return 1;
+  if (db === null) return -1;
+  return da - db;                                                  // most overdue / soonest first
+}
+function renderAgenda() {
+  const wrap = el("div", "agenda");
+  const dated = state.records.filter(r => isVisible(r) && !isComplete(r));
+  // Unplaced records have no r.due at all, so they can't go through rowEl()
+  // (which assumes a real due date) \u2014 render them with the same widget
+  // used by the "needs attention" panel instead.
+  const undated = state.unplaced.filter(u => isVisible(u) && !isComplete(u));
+  const pending = dated.slice().sort(agendaCompare);
+
+  if (!pending.length && !undated.length) {
+    wrap.appendChild(Object.assign(el("div", "agenda-empty"), { textContent: "Nothing pending \u2014 you're caught up." }));
+    return wrap;
+  }
+
+  const renderBandGroups = (list) => {
+    let lastBand = null;
+    list.forEach(r => {
+      const band = agendaBand(r);
+      if (band !== lastBand) {
+        const hd = el("div", "agenda-band agenda-band-" + band);
+        hd.textContent = AGENDA_BANDS[band] + " \u00b7 " + list.filter(x => agendaBand(x) === band).length;
+        wrap.appendChild(hd);
+        lastBand = band;
+      }
+      wrap.appendChild(rowEl(r, false));
+    });
+  };
+
+  if (searchActive()) {
+    // Matches are already sorted first (agendaCompare), so split cleanly into
+    // a promoted "matches" section and an "everything else" section, rather
+    // than letting band headers repeat once for matches and again for the rest.
+    const matches = pending.filter(matchesSearch);
+    const rest = pending.filter(r => !matchesSearch(r));
+    if (matches.length) {
+      wrap.appendChild(Object.assign(el("div", "agenda-search-hd"),
+        { textContent: "\uD83D\uDD0D Matching \u201c" + state.search.trim() + "\u201d \u00b7 " + matches.length }));
+      renderBandGroups(matches);
+    }
+    if (rest.length) {
+      wrap.appendChild(Object.assign(el("div", "agenda-search-hd agenda-search-hd-rest"), { textContent: "Other pending deadlines" }));
+      renderBandGroups(rest);
+    }
+  } else {
+    renderBandGroups(pending);
+  }
+
+  if (undated.length) {
+    const sortedUndated = searchActive()
+      ? undated.slice().sort((a, b) => (matchesSearch(b) ? 1 : 0) - (matchesSearch(a) ? 1 : 0))
+      : undated;
+    const hd = el("div", "agenda-band agenda-band-0");
+    hd.textContent = "No date \u00b7 " + undated.length;
+    wrap.appendChild(hd);
+    sortedUndated.forEach(u => wrap.appendChild(unplacedItem(u)));
+  }
+  return wrap;
+}
+
+/* ---- Month ---- */
+function renderMonth() {
+  const wrap = el("div", "month");
+  const cols = visibleDowIndices();
+  const head = el("div", "weekhead");
+  head.style.gridTemplateColumns = "repeat(" + cols.length + ", 1fr)";
+  cols.forEach(idx => head.appendChild(Object.assign(el("div"), { textContent: DOW[idx] })));
+  wrap.appendChild(head);
+
+  const grid = el("div", "grid");
+  grid.style.gridTemplateColumns = "repeat(" + cols.length + ", 1fr)";
+  const first = new Date(state.focus.getFullYear(), state.focus.getMonth(), 1);
+  const start = startOfWeek(first);
+  const todayKey = dayKeyFromDate(new Date());
+
+  for (let i = 0; i < 42; i++) {
+    const d = addDays(start, i);
+    if (state.hideWeekends && (d.getDay() === 0 || d.getDay() === 6)) continue;
+    const key = dayKeyFromDate(d);
+    const outside = d.getMonth() !== state.focus.getMonth();
+    const cell = el("div", "cell" + (outside ? " outside" : "")
+      + (key === todayKey ? " today" : "") + (key === state.selectedKey ? " selected" : ""));
+    cell.appendChild(Object.assign(el("div", "daynum"), { textContent: d.getDate() }));
+
+    const recs = (outside && !state.showOutsideDeadlines) ? [] : recordsForKey(key);
+    const shown = recs.slice(0, state.maxChipsPerDay);
+    shown.forEach(r => {
+      const kind = classify(r);
+      const related = caseHighlightOn() && r.caseLabel && r.caseLabel === state.highlightCase;
+      const matched = searchActive() && matchesSearch(r);
+      const chip = el("div", "chip" + (visualKind(kind) !== "normal" ? " chip-" + visualKind(kind) : "") + (related ? " case-highlight" : "") + (matched ? " search-match" : ""));
+      applyTaskColor(chip, r, kind);
+      if (caseHighlightOn() && r.caseLabel) { chip.dataset.case = r.caseLabel; chip.title = r.caseLabel; }
+      const tt = r.due.timeStr ? '<span class="t">' + esc(r.due.timeStr) + "</span>" : "";
+      const pre = kind === "complete" ? "\u2713 " : "";
+      chip.innerHTML = tt + esc(pre + (r.title || "(untitled)"));
+      chip.onclick = (e) => {
+        e.stopPropagation();
+        state.selectedKey = key; state.focus = stripTime(d);
+        if (caseHighlightOn() && r.caseLabel) {
+          state.highlightCase = (state.highlightCase === r.caseLabel) ? null : r.caseLabel;
+        }
+        render();
+      };
+      makeDraggable(chip, r);
+      cell.appendChild(chip);
+    });
+    if (recs.length > shown.length) {
+      const hiddenMatches = searchActive() ? recs.slice(shown.length).filter(matchesSearch).length : 0;
+      const moreEl = el("div", "more" + (hiddenMatches ? " more-has-match" : ""));
+      moreEl.textContent = "+" + (recs.length - shown.length) + " more" + (hiddenMatches ? " (" + hiddenMatches + " match" + (hiddenMatches === 1 ? "" : "es") + ")" : "");
+      cell.appendChild(moreEl);
+    }
+
+    cell.onclick = () => { state.selectedKey = key; state.focus = stripTime(d); render(); };
+    makeDropTarget(cell, d);
+    grid.appendChild(cell);
+  }
+  wrap.appendChild(grid);
+
+  // Selected-day detail panel
+  const panel = el("div", "daypanel");
+  const sel = parseKeyToDate(state.selectedKey);
+  panel.appendChild(Object.assign(el("h3"), { textContent: "Deadlines on " + DOW[sel.getDay()] + ", " + MONTHS[sel.getMonth()] + " " + sel.getDate() }));
+  const addBtn = el("button", "addday");
+  addBtn.innerHTML = "\uFF0B Add deadline on this day";
+  addBtn.onclick = (e) => { e.stopPropagation(); openNewTask(state.selectedKey); };
+  panel.appendChild(addBtn);
+  const list = el("div", "list");
+  list.appendChild(dayListEl(state.selectedKey, false));
+  panel.appendChild(list);
+  makeDropTarget(panel, sel);
+  wrap.appendChild(panel);
+  return wrap;
+}
+
+/* ---- Week ---- */
+function renderWeek() {
+  const wrap = el("div", "week");
+  const cols = visibleDowIndices();
+  wrap.style.gridTemplateColumns = "repeat(" + cols.length + ", minmax(150px, 1fr))";
+  const start = startOfWeek(state.focus);
+  const todayKey = dayKeyFromDate(new Date());
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(start, i);
+    if (state.hideWeekends && (d.getDay() === 0 || d.getDay() === 6)) continue;
+    const key = dayKeyFromDate(d);
+    const col = el("div", "weekcol" + (key === todayKey ? " today" : "") + (key === state.selectedKey ? " selected" : ""));
+    const ch = el("div", "colhead");
+    ch.innerHTML = '<div class="dow">' + DOW[d.getDay()] + '</div><div class="dnum">' + d.getDate() + "</div>";
+    ch.onclick = () => { state.selectedKey = key; state.focus = stripTime(d); render(); };
+    col.appendChild(ch);
+    const cb = el("div", "colbody");
+    cb.appendChild(dayListEl(key, true));
+    col.appendChild(cb);
+    makeDropTarget(col, d);
+    wrap.appendChild(col);
+  }
+  return wrap;
+}
+
+/* ---- Day ---- */
+function renderDay() {
+  const wrap = el("div", "list");
+  wrap.appendChild(dayListEl(dayKeyFromDate(state.focus), false));
+  return wrap;
+}
+
+/* ===================== DOM util ===================== */
+function el(tag, cls) { const e = document.createElement(tag); if (cls) e.className = cls; return e; }
+function parseKeyToDate(key) { const [y, m, d] = key.split("-").map(Number); return new Date(y, m, d); }
+
+/* ===================== New-task modal ===================== */
+function closeModal() { const m = document.querySelector(".modal-overlay"); if (m) m.remove(); }
+
+function labelEl(text) { return Object.assign(el("label"), { textContent: text }); }
+
+// Text input backed by a datalist of known values (choose existing or type new).
+function datalistInput(values, id) {
+  const wrap = el("div");
+  const inp = document.createElement("input"); inp.type = "text"; inp.setAttribute("list", id);
+  const dl = document.createElement("datalist"); dl.id = id;
+  values.forEach(v => { const o = document.createElement("option"); o.value = v; dl.appendChild(o); });
+  wrap.append(inp, dl);
+  return { wrap: wrap, value: () => inp.value.trim() };
+}
+
+function openNewTask(prefillKey) {
+  if (!state.haveGrist || !state.mapped.due || !state.mapped.title) return;
+  closeModal();
+  const overlay = el("div", "modal-overlay");
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) closeModal(); });
+  document.addEventListener("keydown", function esc(e) { if (e.key === "Escape") { closeModal(); document.removeEventListener("keydown", esc); } });
+
+  const modal = el("div", "modal");
+  modal.addEventListener("click", e => e.stopPropagation());
+  modal.appendChild(Object.assign(el("h3"), { textContent: "New deadline" }));
+  const titleNote = el("div", "muted");
+  titleNote.style.cssText = "font-size:12px;color:var(--ink-soft);margin:-4px 0 10px;";
+  titleNote.textContent = "The title is generated automatically from the Case and Category once set.";
+  modal.appendChild(titleNote);
+
+  // Case / matter — type-to-filter from cases already present in the table.
+  // Uses the same datalistInput as Status/Category/Priority for consistent styling.
+  let caseIn = null;
+  if (state.mapped.caseRef) {
+    modal.appendChild(labelEl("Case"));
+    const cases = Object.keys(state.caseRegistry).sort((a, b) => a.localeCompare(b));
+    caseIn = datalistInput(cases, "nt-case");
+    modal.appendChild(caseIn.wrap);
+    if (!cases.length) {
+      const note = el("div", "muted"); note.style.cssText = "font-size:12px;color:var(--ink-soft);margin:2px 0 6px;";
+      note.textContent = state.caseIsRef
+        ? "No cases found on existing deadlines yet. You can still type a case name \u2014 if it doesn't match one already in your case list, the deadline will be created without a case link, and you can set it in Grist afterward."
+        : "No cases found on existing deadlines yet \u2014 type any case name to use it.";
+      modal.appendChild(note);
+    }
+  }
+
+  const base = prefillKey ? parseKeyToDate(prefillKey) : new Date();
+  modal.appendChild(labelEl(state.dueIsDateTime ? "Due date & time" : "Due date"));
+  const row2 = el("div", "row2");
+  const dwrap = el("div");
+  const dateIn = document.createElement("input"); dateIn.type = "date";
+  dateIn.value = pad4(base.getFullYear()) + "-" + pad2(base.getMonth() + 1) + "-" + pad2(base.getDate());
+  dwrap.appendChild(dateIn); row2.appendChild(dwrap);
+  let timeIn = null;
+  if (state.dueIsDateTime) {
+    const twrap = el("div");
+    timeIn = document.createElement("input"); timeIn.type = "time"; timeIn.value = "09:00";
+    twrap.appendChild(timeIn); row2.appendChild(twrap);
+  }
+  modal.appendChild(row2);
+
+  let statusIn = null, catIn = null, priIn = null, priBoolIn = null, asgPicker = null, descIn = null;
+  if (state.mapped.status) { modal.appendChild(labelEl("Status")); statusIn = datalistInput(statusOptions(), "nt-status"); modal.appendChild(statusIn.wrap); }
+  if (state.mapped.category) { modal.appendChild(labelEl("Category")); catIn = datalistInput(distinctValues(recCats).filter(c => c !== NO_CAT), "nt-cat"); modal.appendChild(catIn.wrap); }
+  if (state.mapped.priority) {
+    modal.appendChild(labelEl("Priority"));
+    if (state.priIsBool) {
+      const prow = el("label", "poprow"); prow.style.padding = "2px 0";
+      priBoolIn = document.createElement("input"); priBoolIn.type = "checkbox";
+      prow.append(priBoolIn, Object.assign(el("span", "label"), { textContent: "Important!" }));
+      modal.appendChild(prow);
+    } else {
+      const pv = distinctValues(r => { const v = r.priority; return (v === null || v === undefined || v === "") ? [] : [String(v)]; });
+      priIn = datalistInput(pv, "nt-pri"); modal.appendChild(priIn.wrap);
+    }
+  }
+  if (state.mapped.assignedTo) { modal.appendChild(labelEl("Assigned to")); asgPicker = buildTagPicker([], state.asgMulti, distinctValues(recAsgs).filter(v => v !== UNASSIGNED), "name"); modal.appendChild(asgPicker.element); }
+  if (state.mapped.description) { modal.appendChild(labelEl("Description")); descIn = document.createElement("textarea"); modal.appendChild(descIn); }
+
+  const acts = el("div", "modal-actions");
+  const createB = el("button", "m-create"); createB.textContent = "Create";
+  createB.onclick = () => {
+    // Title is a formula column (derived from Case + Category) — never written here.
+    if (!dateIn.value) { dateIn.style.borderColor = "var(--red)"; return; }
+    const fields = {};
+    let pendingCaseNote = null;
+    fields[state.cols.DueDate] = encodeDue(dateIn.value, timeIn ? timeIn.value : null);
+    if (caseIn && caseIn.value()) {
+      const typed = caseIn.value();
+      // Resolve the typed text to a known case (exact first, then case-insensitive).
+      let label = null;
+      if (Object.prototype.hasOwnProperty.call(state.caseRegistry, typed)) label = typed;
+      else {
+        const hit = Object.keys(state.caseRegistry).find(k => k.toLowerCase() === typed.toLowerCase());
+        if (hit) label = hit;
+      }
+      if (label) {
+        const refId = state.caseRegistry[label];
+        const isRef = state.caseTypeKnown ? state.caseIsRef : (typeof refId === "number");
+        if (isRef) {
+          // A Reference column requires the target row id. Only write when we have one.
+          if (typeof refId === "number") fields[state.cols.Case] = refId;
+          else pendingCaseNote = label;   // no id resolved — create unlinked, note it below
+        } else {
+          fields[state.cols.Case] = label;   // Choice / Text case name
+        }
+      } else {
+        // Typed text doesn't match any known case.
+        const isRef = state.caseTypeKnown ? state.caseIsRef : false;
+        if (isRef) pendingCaseNote = typed;                 // can't create a new reference from here
+        else fields[state.cols.Case] = typed;               // Choice/Text can take a fresh name
+      }
+    }
+    if (statusIn && statusIn.value()) fields[state.cols.Status] = statusIn.value();
+    if (catIn && catIn.value()) fields[state.cols.Category] = state.catMulti ? ["L", catIn.value()] : catIn.value();
+    if (priBoolIn) { if (priBoolIn.checked) fields[state.cols.Priority] = true; }
+    else if (priIn && priIn.value()) {
+      const pv = priIn.value();
+      fields[state.cols.Priority] = (pv !== "" && !isNaN(Number(pv))) ? Number(pv) : pv;
+    }
+    if (asgPicker) { const a = encodeAssignees(asgPicker.get()); if (a !== null) fields[state.cols.AssignedTo] = a; }
+    if (descIn && descIn.value.trim()) fields[state.cols.Description] = descIn.value;
+    createTask(fields).then(ok => {
+      if (ok && pendingCaseNote) {
+        alert("Deadline created. The case \u201c" + pendingCaseNote + "\u201d couldn't be linked " +
+              "because its row id wasn't available \u2014 open the deadline in Grist to set the Case.");
+      }
+    });
+    closeModal();
+  };
+  const cancelB = el("button", "m-cancel"); cancelB.textContent = "Cancel";
+  cancelB.onclick = () => closeModal();
+  acts.append(createB, cancelB);
+  modal.appendChild(acts);
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+  if (caseIn) caseIn.wrap.querySelector("input").focus();
+  else dateIn.focus();
+}
+
+document.addEventListener("click", () => {
+  let changed = false;
+  if (state.openPopover) { state.openPopover = null; changed = true; }
+  if (state.openStatusRow !== null) { state.openStatusRow = null; changed = true; }
+  if (state.openDateRow !== null) { state.openDateRow = null; changed = true; }
+  if (state.highlightCase !== null) { state.highlightCase = null; changed = true; }
+  if (changed) render();
 });
 
-/* ── DATE PARSING ──────────────────────────────────────────── */
-function parseGristDate(raw) {
-  if (!raw) return null;
-  /* Grist Date columns come as Unix timestamp (seconds) */
-  if (typeof raw === 'number') {
-    const d = new Date(raw * 1000);
-    if (isNaN(d)) return null;
-    return toYMD(d);
+/* ===================== Grist wiring ===================== */
+function selectInGrist(rowId) {
+  try { grist.setCursorPos({ rowId }); } catch (e) { /* linked-cursor optional */ }
+}
+
+// Permanently remove a deadline from the source table.
+async function deleteTask(rowId, title) {
+  const label = title && String(title).trim() ? "\u201c" + String(title).trim() + "\u201d" : "this deadline";
+  if (!confirm("Delete " + label + "? This removes it from the table and cannot be undone here.")) return;
+  try {
+    await grist.selectedTable.destroy(rowId);
+  } catch (e) {
+    try {
+      const tid = await grist.selectedTable.getTableId();
+      await grist.docApi.applyUserActions([["RemoveRecord", tid, rowId]]);
+    } catch (e2) {
+      console.error("delete failed", e2);
+      const msg = String((e2 && e2.message) || e2 || "");
+      if (/access|permission|read-only|denied/i.test(msg)) {
+        alert("Could not delete the deadline: the widget needs full (read \u0026 write) access. " +
+              "Open the creator panel and set access to Full.");
+      } else {
+        alert("Could not delete the deadline." + (msg ? " Grist reported: " + msg : ""));
+      }
+      return;
+    }
   }
-  /* ISO string */
-  if (typeof raw === 'string') {
-    const m = raw.match(/^(\d{4}-\d{2}-\d{2})/);
-    if (m) return m[1];
-    /* MM/DD/YYYY */
-    const m2 = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-    if (m2) return `${m2[3]}-${m2[1].padStart(2,'0')}-${m2[2].padStart(2,'0')}`;
+  // Deselect/clean up any UI state pointing at the row we just removed.
+  if (state.expandedRows) state.expandedRows.delete(rowId);
+  render();
+}
+
+// Write a single field back to the source table, directly from the calendar.
+async function writeField(rowId, colId, value, label) {
+  if (!colId) return;
+  const fields = {}; fields[colId] = value;
+  try {
+    await grist.selectedTable.update({ id: rowId, fields: fields });
+  } catch (e) {
+    try {
+      const tid = await grist.selectedTable.getTableId();
+      await grist.docApi.applyUserActions([["UpdateRecord", tid, rowId, fields]]);
+    } catch (e2) {
+      console.error(label + " update failed", e2);
+      alert("Could not update " + label + ". The widget needs full (read \u0026 write) access \u2014 check the widget's access setting in the creator panel.");
+    }
+  }
+}
+function setStatus(rowId, value) { if (state.mapped.status) writeField(rowId, state.statusColId, value, "status"); }
+function setDue(rowId, ts) { if (state.mapped.due) writeField(rowId, state.dueColId, ts, "due date"); }
+
+/* ===================== Drag-and-drop rescheduling ===================== */
+// Dragging is ephemeral UI state, not part of `state` (no need to persist or
+// trigger a full re-render on every dragover).
+let draggingId = null;
+
+// Move a task to a new day, preserving its time-of-day if the column is a
+// DateTime. A drop back onto the task's current day is a harmless no-op.
+function moveTaskToDay(rec, targetDate) {
+  if (!rec || !rec.due) return;
+  const curKey = dayKeyFromYMD(rec.due.y, rec.due.mo, rec.due.d);
+  const targetKey = dayKeyFromDate(targetDate);
+  if (curKey === targetKey) return;
+  const timeStr = (state.dueIsDateTime && rec.due.minuteOfDay >= 0)
+    ? pad2(Math.floor(rec.due.minuteOfDay / 60)) + ":" + pad2(rec.due.minuteOfDay % 60)
+    : null;
+  setDue(rec.id, encodeDue(iso(targetDate), timeStr));
+}
+
+// Make an element a drag SOURCE representing task `r`.
+function makeDraggable(node, r) {
+  node.draggable = true;
+  node.addEventListener("dragstart", (e) => {
+    draggingId = r.id;
+    try { e.dataTransfer.setData("text/plain", String(r.id)); e.dataTransfer.effectAllowed = "move"; } catch (err) {}
+    node.classList.add("dragging");
+    // Highlight every other deadline for the same case, so you can see whether
+    // you're about to drag this task past a related one. Applied directly to the
+    // live DOM (not via render()) so an in-progress native drag isn't disrupted
+    // by the whole calendar being rebuilt underneath it.
+    if (caseHighlightOn() && r.caseLabel) {
+      document.querySelectorAll('[data-case]').forEach(n => {
+        if (n.dataset.case === r.caseLabel) n.classList.add("case-highlight");
+      });
+    }
+  });
+  node.addEventListener("dragend", () => {
+    draggingId = null;
+    node.classList.remove("dragging");
+    document.querySelectorAll(".dragover").forEach(n => n.classList.remove("dragover"));
+    // Only clear the drag-applied highlight, not one the user set by clicking a
+    // chip/row \u2014 that's tracked in state and re-applied by the next render().
+    if (!(caseHighlightOn() && r.caseLabel && r.caseLabel === state.highlightCase)) {
+      document.querySelectorAll('[data-case="' + cssEscape(r.caseLabel || "") + '"].case-highlight')
+        .forEach(n => n.classList.remove("case-highlight"));
+    }
+  });
+}
+
+// Minimal CSS.escape fallback for building an attribute-value selector safely
+// (case names can contain quotes, parens, etc.).
+function cssEscape(s) {
+  if (window.CSS && CSS.escape) return CSS.escape(s);
+  return String(s).replace(/["\\]/g, "\\$&");
+}
+
+// Make an element a drop TARGET for day `targetDate`.
+function makeDropTarget(node, targetDate) {
+  node.addEventListener("dragover", (e) => {
+    if (draggingId == null) return;
+    e.preventDefault();
+    try { e.dataTransfer.dropEffect = "move"; } catch (err) {}
+    node.classList.add("dragover");
+  });
+  node.addEventListener("dragleave", () => node.classList.remove("dragover"));
+  node.addEventListener("drop", (e) => {
+    e.preventDefault();
+    node.classList.remove("dragover");
+    let idStr = "";
+    try { idStr = e.dataTransfer.getData("text/plain"); } catch (err) {}
+    const id = idStr ? Number(idStr) : draggingId;
+    draggingId = null;
+    if (id == null || Number.isNaN(id)) return;
+    const rec = state.records.find(x => x.id === id);
+    if (rec) moveTaskToDay(rec, targetDate);
+  });
+}
+function setDescription(rowId, text) {
+  if (state.mapped.description) writeField(rowId, state.descColId, (text && text.trim() !== "") ? text : null, "description");
+}
+function encodeMulti(arr, multi) {
+  if (!arr || !arr.length) return null;
+  return multi ? ["L"].concat(arr) : arr[0];
+}
+function encodeAssignees(arr) { return encodeMulti(arr, state.asgMulti); }
+function setAssignees(rowId, arr) {
+  if (state.mapped.assignedTo) writeField(rowId, state.asgColId, encodeAssignees(arr), "assignee");
+}
+function setCategory(rowId, arr) {
+  if (state.mapped.category) writeField(rowId, state.cols.Category, encodeMulti(arr, state.catMulti), "category");
+}
+function setPriority(rowId, arr) {
+  if (!state.mapped.priority) return;
+  let v = (arr && arr.length) ? arr[0] : null;
+  if (v !== null && v !== "" && !isNaN(Number(v))) v = Number(v);
+  writeField(rowId, state.cols.Priority, v, "priority");
+}
+async function createTask(fields, opts) {
+  opts = opts || {};
+  // Guard: never send null/undefined column IDs (a create with a bad key throws).
+  const clean = {};
+  Object.keys(fields).forEach(k => { if (k && k !== "null" && k !== "undefined" && fields[k] !== undefined) clean[k] = fields[k]; });
+  try {
+    await grist.selectedTable.create({ fields: clean });
+    return true;
+  } catch (e) {
+    // Retry via user actions (more permissive for some column types).
+    try {
+      const tid = await grist.selectedTable.getTableId();
+      await grist.docApi.applyUserActions([["AddRecord", tid, null, clean]]);
+      return true;
+    } catch (e2) {
+      const msg = String((e2 && e2.message) || e2 || "");
+      // A Reference column rejects a name string — retry once without the Case field,
+      // so the deadline is still created (just unlinked) rather than lost entirely.
+      const caseCol = state.cols.Case;
+      if (!opts.noCase && caseCol && clean[caseCol] !== undefined &&
+          /ref|reference|type|invalid|convert/i.test(msg)) {
+        const without = Object.assign({}, clean); delete without[caseCol];
+        const ok = await createTask(without, { noCase: true });
+        if (ok) {
+          alert("Deadline created, but the case couldn't be linked automatically. " +
+                "Open it in Grist and set the Case, or map the Case column to a plain text field. " +
+                "(Details: " + msg + ")");
+          return true;
+        }
+      }
+      console.error("create failed", e2);
+      // Distinguish an access problem from a data problem in the message.
+      if (/access|permission|read-only|denied/i.test(msg)) {
+        alert("Could not create the deadline: the widget needs full (read \u0026 write) access. " +
+              "Open the creator panel and set access to Full.");
+      } else {
+        alert("Could not create the deadline. " + (msg ? "Grist reported: " + msg : "Unknown error.") +
+              "\n\nIf this mentions the Case column, try mapping it to a plain Choice/Text field, " +
+              "or leave Case unset when creating from the calendar.");
+      }
+      return false;
+    }
+  }
+}
+
+// Resolve relevant column types (Date vs DateTime, single vs list) from doc metadata.
+async function detectColumnTypes() {
+  try {
+    const tableId = await grist.selectedTable.getTableId();
+    const tables = await grist.docApi.fetchTable("_grist_Tables");
+    let ref = null;
+    for (let i = 0; i < tables.id.length; i++) { if (tables.tableId[i] === tableId) { ref = tables.id[i]; break; } }
+    const cols = await grist.docApi.fetchTable("_grist_Tables_column");
+    const typeOf = (colId) => {
+      if (!colId) return null;
+      for (let i = 0; i < cols.id.length; i++) {
+        if (cols.colId[i] === colId && (ref === null || cols.parentId[i] === ref)) return String(cols.type[i] || "");
+      }
+      return null;
+    };
+    const rowIndexOf = (colId) => {
+      if (!colId) return -1;
+      for (let i = 0; i < cols.id.length; i++) {
+        if (cols.colId[i] === colId && (ref === null || cols.parentId[i] === ref)) return i;
+      }
+      return -1;
+    };
+    const isList = (t) => t.indexOf("ChoiceList") === 0 || t.indexOf("RefList") === 0;
+    const dt = typeOf(state.cols.DueDate);
+    if (dt !== null) { state.dueTypeFromMeta = dt.indexOf("DateTime") === 0; state.dueIsDateTime = state.dueTypeFromMeta; }
+    const at = typeOf(state.cols.AssignedTo);
+    if (at !== null) { state.asgMulti = isList(at); state.asgTypeKnown = true; }
+    // Pick up per-person colors from Grist's own Choice/ChoiceList column
+    // config, if the person has configured them there ("the color of that
+    // person's name in the Deadlines tab"). No config found -> falls back
+    // to personColor()'s deterministic palette at render time.
+    const asgIdx = rowIndexOf(state.cols.AssignedTo);
+    if (asgIdx >= 0 && cols.widgetOptions) {
+      try {
+        const opts = JSON.parse(cols.widgetOptions[asgIdx] || "{}");
+        if (opts && opts.choiceOptions) {
+          const map = {};
+          Object.keys(opts.choiceOptions).forEach(name => {
+            const co = opts.choiceOptions[name];
+            if (co && co.fillColor) map[name] = co.fillColor;
+          });
+          state.assigneeColors = map;
+        }
+      } catch (e) { /* leave assigneeColors empty -> fallback palette used */ }
+    }
+    const cst = typeOf(state.cols.Case);
+    if (cst !== null) {
+      state.caseIsRef = (cst.indexOf("Ref") === 0);
+      state.caseTypeKnown = true;
+      const m = cst.match(/^Ref(?:List)?:(.+)$/);
+      state.caseTargetTable = m ? m[1] : null;
+    }
+    const ct = typeOf(state.cols.Category);
+    if (ct !== null) { state.catMulti = isList(ct); state.catTypeKnown = true; }
+    const pt = typeOf(state.cols.Priority);
+    if (pt !== null) { state.priIsBool = pt === "Bool"; state.priTypeKnown = true; }
+    await refreshCaseIds();
+    render();
+  } catch (e) { /* keep data-based heuristics */ }
+}
+
+// Extract a plain row id from a raw reference cell value (fetchTable gives
+// unresolved data, so this is normally just a number, but be defensive).
+function extractRefId(v) {
+  if (typeof v === "number") return v > 0 ? v : null;
+  if (Array.isArray(v)) {
+    if (v[0] === "R" && v.length >= 3 && typeof v[2] === "number") return v[2];
+    const items = v[0] === "L" ? v.slice(1) : v;
+    if (items.length && typeof items[0] === "number") return items[0];
   }
   return null;
 }
 
-/* ── HELPERS ───────────────────────────────────────────────── */
-function dateFromYMD(s) { return s ? new Date(s + 'T00:00:00') : null; }
-function toYMD(d) { return d.toISOString().slice(0, 10); }
-function fmtShort(s) {
-  const d = dateFromYMD(s);
-  return d ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-}
-function fmtAxis(d) {
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
-}
-function daysBetween(a, b) { return Math.round((b - a) / 86400000); }
-const TODAY_YMD = toYMD(new Date());
-
-/* ── TOOLBAR ACTIONS ───────────────────────────────────────── */
-function applyRange() {
-  const s = document.getElementById('rangeStart').value;
-  const e = document.getElementById('rangeEnd').value;
-  rangeStart = s ? dateFromYMD(s) : null;
-  rangeEnd   = e ? dateFromYMD(e) : null;
-  render();
-}
-function fitToEvents() {
-  rangeStart = null; rangeEnd = null;
-  document.getElementById('rangeStart').value = '';
-  document.getElementById('rangeEnd').value   = '';
-  render();
-}
-function toggleToday() {
-  showToday = !showToday;
-  document.getElementById('todayBtn').style.opacity = showToday ? '1' : '0.4';
-  render();
+// Resolve real row ids for cases already used in the deadlines table.
+// onRecords can hand back a Reference column already resolved to its display
+// text (no id attached), which is why a case picked from the "existing cases"
+// list could fail to link. This reads the RAW column values straight from the
+// table via fetchTable \u2014 which are always plain row ids for a Reference \u2014
+// and matches them back to each deadline by row id, so the case registry ends
+// up with a real, writable reference id instead of just a label.
+async function refreshCaseIds() {
+  if (!state.mapped.caseRef || !state.caseTypeKnown || !state.caseIsRef) return;
+  const colId = state.cols.Case;
+  if (!colId) return;
+  try {
+    const tableId = await grist.selectedTable.getTableId();
+    const raw = await grist.docApi.fetchTable(tableId);
+    if (!raw || !raw.id || !(colId in raw)) return;
+    const rawVals = raw[colId];
+    const byRowId = {};
+    for (let i = 0; i < raw.id.length; i++) byRowId[raw.id[i]] = extractRefId(rawVals[i]);
+    state.caseRawById = byRowId;
+    // Patch the registry with real ids wherever a placed/unplaced record resolves one.
+    state.records.concat(state.unplaced).forEach(r => {
+      const rid = byRowId[r.id];
+      if (r.caseLabel && typeof rid === "number") state.caseRegistry[r.caseLabel] = rid;
+    });
+  } catch (e) { /* fall back to whatever readCase() already resolved */ }
 }
 
-/* ── CATEGORY PILL TOGGLE ──────────────────────────────────── */
-function toggleCat(cat) {
-  if (filterCats.has(cat)) filterCats.delete(cat);
-  else filterCats.add(cat);
-  renderStatusBar();
-  renderTimeline();
+function persist() {
+  if (!state.haveGrist) return;
+  try {
+    grist.setOptions({
+      view: state.view,
+      sortByPriority: state.sortByPriority,
+      sortDir: state.sortDir,
+      hiddenCats: Array.from(state.hiddenCats),
+      hiddenAsgs: Array.from(state.hiddenAsgs),
+      hiddenStatuses: Array.from(state.hiddenStatuses),
+      redCats: Array.from(state.redCats),
+      showOutsideDeadlines: state.showOutsideDeadlines,
+      caseHighlightEnabled: state.caseHighlightEnabled,
+      weekStartDay: state.weekStartDay,
+      hideWeekends: state.hideWeekends,
+      maxChipsPerDay: state.maxChipsPerDay,
+      timeFormat: state.timeFormat,
+      searchFiltersOut: state.searchFiltersOut,
+      taskColorMode: state.taskColorMode,
+    });
+  } catch (e) {}
 }
 
-/* ── MAIN RENDER ───────────────────────────────────────────── */
-function render() {
-  renderStatusBar();
-  if (allEvents.length === 0) {
-    document.getElementById('emptyPanel').style.display    = '';
-    document.getElementById('timelineWrap').style.display  = 'none';
-    return;
+// Read a logical column's value straight from the raw record using the
+// mappings Grist passes to onRecords. Robust against mapColumnNames returning null.
+function pick(rec, mappings, logical) {
+  const real = mappings ? mappings[logical] : null;
+  if (real === undefined || real === null) return undefined;
+  if (Array.isArray(real)) return real.map(c => rec[c]); // allowMultiple mappings
+  return rec[real];
+}
+
+// Normalize a Case reference cell into { id, label }.
+// Grist references may arrive as a bare rowId (number), a ["R", table, rowId]
+// marker, or — when the widget maps the visible column — the display string.
+function readCase(rec, mappings) {
+  const raw = pick(rec, mappings, "Case");
+  if (raw === null || raw === undefined || raw === "") return null;
+  if (typeof raw === "number") return { id: raw, label: String(raw) };
+  if (Array.isArray(raw)) {
+    // ["R", tableId, rowId] or a RefList; take the first meaningful entry
+    if (raw[0] === "R" && raw.length >= 3) return { id: raw[2], label: String(raw[2]) };
+    const items = raw[0] === "L" ? raw.slice(1) : raw;
+    if (items.length) return { id: items[0], label: String(items[0]) };
+    return null;
   }
-  document.getElementById('emptyPanel').style.display    = 'none';
-  document.getElementById('timelineWrap').style.display  = '';
-  renderTimeline();
+  // A display string (Grist resolved the reference to its show-column value)
+  return { id: null, label: String(raw) };
 }
 
-function renderStatusBar() {
-  const bar  = document.getElementById('statusbar');
-  bar.innerHTML = '';
-  const cats = [...new Set(allEvents.map(e => e.cat))].sort();
-  cats.forEach(cat => {
-    const col   = getCatColor(cat);
-    const count = allEvents.filter(e => e.cat === cat).length;
-    const on    = filterCats.has(cat);
-    const pill  = document.createElement('div');
-    pill.className = 'pill' + (on ? '' : ' off');
-    pill.style.background   = on ? col.badge : 'transparent';
-    pill.style.color        = col.text;
-    pill.style.borderColor  = on ? col.dot : 'var(--border)';
-    pill.innerHTML =
-      `<span class="pill-dot" style="background:${col.dot}"></span>` +
-      `<span>${cat}</span>` +
-      `<span class="count-badge">${count}</span>`;
-    pill.addEventListener('click', () => toggleCat(cat));
-    pill.title = on ? `Hide ${cat}` : `Show ${cat}`;
-    bar.appendChild(pill);
-  });
-}
-
-/* ── TIMELINE RENDER ───────────────────────────────────────── */
-function renderTimeline() {
-  const canvas = document.getElementById('tlCanvas');
-  const visible = allEvents.filter(e => filterCats.has(e.cat));
-
-  if (visible.length === 0) {
-    canvas.innerHTML = '<div style="padding:2rem 0;text-align:center;color:var(--text3);font-size:13px">No events match the current filter.</div>';
-    return;
-  }
-
-  const dates  = visible.map(e => dateFromYMD(e.date));
-  const minD   = rangeStart || new Date(Math.min(...dates));
-  const maxD   = rangeEnd   || new Date(Math.max(...dates));
-  const totalDays = Math.max(daysBetween(minD, maxD), 1);
-
-  /* Padding: ~4% of span, min 3 days */
-  const padDays = Math.max(Math.ceil(totalDays * 0.04), 3);
-  const startD  = new Date(minD); startD.setDate(startD.getDate() - padDays);
-  const endD    = new Date(maxD); endD.setDate(endD.getDate()   + padDays);
-  const spanDays = daysBetween(startD, endD);
-
-  /* px per day — aim for enough spread, minimum 4px/day */
-  const containerW = document.getElementById('tlScrollWrap').clientWidth || 800;
-  const pxPerDay   = Math.max(4, (containerW - 32) / spanDays);
-  const totalW     = Math.round(spanDays * pxPerDay);
-
-  canvas.innerHTML = '';
-  canvas.style.width = Math.max(totalW, containerW - 32) + 'px';
-
-  /* ── Axis ticks ── */
-  const axisRow = document.createElement('div');
-  axisRow.style.cssText = 'position:relative;height:28px;';
-  const numTicks = Math.min(12, Math.ceil(spanDays / 7));
-  for (let i = 0; i <= numTicks; i++) {
-    const frac = i / numTicks;
-    const tickDate = new Date(startD.getTime() + frac * spanDays * 86400000);
-    const tick = document.createElement('span');
-    tick.className = 'axis-tick';
-    tick.style.left = Math.round(frac * totalW) + 'px';
-    tick.style.top  = '8px';
-    tick.textContent = fmtAxis(tickDate);
-    axisRow.appendChild(tick);
-  }
-  canvas.appendChild(axisRow);
-
-  /* ── Track bar ── */
-  const trackRow = document.createElement('div');
-  trackRow.className = 'track-row';
-
-  /* Today marker */
-  if (showToday) {
-    const todayD = dateFromYMD(TODAY_YMD);
-    if (todayD >= startD && todayD <= endD) {
-      const todayOff = Math.round(daysBetween(startD, todayD) * pxPerDay);
-      const tm = document.createElement('div');
-      tm.className = 'track-today';
-      tm.style.left = todayOff + 'px';
-      const tl = document.createElement('span');
-      tl.className = 'track-today-label';
-      tl.style.left = todayOff + 'px';
-      tl.textContent = 'Today';
-      trackRow.appendChild(tl);
-      trackRow.appendChild(tm);
+function ingest(records, mappings) {
+  state.mapped = {
+    due: !!mappings.DueDate,
+    title: !!mappings.Title,
+    category: !!mappings.Category,
+    assignedTo: !!mappings.AssignedTo,
+    priority: !!mappings.Priority,
+    status: !!mappings.Status,
+    description: !!mappings.Description,
+    daysLeft: !!mappings.DaysLeft,
+    caseRef: !!mappings.Case,
+  };
+  state.cols = {
+    DueDate: mappings.DueDate || null,
+    Title: mappings.Title || null,
+    Status: mappings.Status || null,
+    Category: mappings.Category || null,
+    AssignedTo: mappings.AssignedTo || null,
+    Priority: mappings.Priority || null,
+    Description: mappings.Description || null,
+    Case: mappings.Case || null,
+  };
+  state.statusColId = mappings.Status || null;
+  state.dueColId = mappings.DueDate || null;
+  state.descColId = mappings.Description || null;
+  state.asgColId = mappings.AssignedTo || null;
+  state.caseColId = mappings.Case || null;
+  state.caseRegistry = {};   // display label -> reference row id (from cases already in the table)
+  const out = [];
+  const unplaced = [];
+  for (const rec of (records || [])) {
+    const rawDue = pick(rec, mappings, "DueDate");
+    const due = parseDue(rawDue);
+    const caseInfo = state.mapped.caseRef ? readCase(rec, mappings) : null;
+    if (caseInfo && caseInfo.label) state.caseRegistry[caseInfo.label] = caseInfo.id;
+    if (!due) {
+      unplaced.push({
+        id: rec.id,
+        title: pick(rec, mappings, "Title"),
+        status: state.mapped.status ? pick(rec, mappings, "Status") : null,
+        category: state.mapped.category ? pick(rec, mappings, "Category") : null,
+        assignedTo: state.mapped.assignedTo ? pick(rec, mappings, "AssignedTo") : null,
+        caseLabel: caseInfo ? caseInfo.label : null,
+        reason: (rawDue === null || rawDue === undefined || rawDue === "") ? "no-date" : "bad-date",
+      });
+      continue;
     }
+    out.push({
+      id: rec.id,
+      due,
+      key: dayKeyFromYMD(due.y, due.mo, due.d),
+      title: pick(rec, mappings, "Title"),
+      category: state.mapped.category ? pick(rec, mappings, "Category") : null,
+      assignedTo: state.mapped.assignedTo ? pick(rec, mappings, "AssignedTo") : null,
+      priority: state.mapped.priority ? pick(rec, mappings, "Priority") : null,
+      status: state.mapped.status ? pick(rec, mappings, "Status") : null,
+      description: state.mapped.description ? pick(rec, mappings, "Description") : null,
+      daysLeft: state.mapped.daysLeft ? pick(rec, mappings, "DaysLeft") : null,
+      caseLabel: caseInfo ? caseInfo.label : null,
+      caseId: caseInfo ? caseInfo.id : null,
+    });
   }
-  canvas.appendChild(trackRow);
+  state.records = out;
+  state.unplaced = unplaced;
+  // Provisional types from data until metadata resolves them.
+  if (state.dueTypeFromMeta === null) state.dueIsDateTime = out.some(r => r.due.timed);
+  if (!state.asgTypeKnown) state.asgMulti = out.some(r => Array.isArray(r.assignedTo));
+  if (!state.catTypeKnown) state.catMulti = out.some(r => Array.isArray(r.category));
+  if (!state.priTypeKnown) state.priIsBool = out.some(r => typeof r.priority === "boolean");
+  seedRedCatsIfNeeded();
+}
 
-  /* ── Events ── */
-  const evtsLayer = document.createElement('div');
-  evtsLayer.className = 'events-layer';
+// On first run, auto-flag SOL / Trial / statute-type categories as critical (red).
+// Only runs until the user's choice is loaded or set; respects any saved selection.
+function seedRedCatsIfNeeded() {
+  if (state.redCatsInit || !state.mapped.category) return;
+  const cats = distinctValues(recCats).filter(c => c !== NO_CAT);
+  if (!cats.length) return; // wait until categories are known
+  cats.forEach(c => {
+    const s = c.toLowerCase();
+    if (s.includes("sol") || s.includes("trial") || s.includes("statute") || s.includes("limitation")) {
+      state.redCats.add(c);
+    }
+  });
+  state.redCatsInit = true;
+  persist();
+}
 
-  /* Cluster detection: group events within ~80px of each other */
-  const positioned = visible.map(evt => ({
-    evt,
-    px: Math.round(daysBetween(startD, dateFromYMD(evt.date)) * pxPerDay),
-  }));
-
-  /* Stagger overlapping events */
-  const STAGGER = 18;
-  positioned.forEach((item, i) => {
-    const col  = getCatColor(item.evt.cat);
-    const node = document.createElement('div');
-    node.className = 'evt-node';
-    node.style.left = item.px + 'px';
-
-    /* Check for nearby predecessors to offset vertically */
-    const overlap = positioned.slice(0, i).filter(p => Math.abs(p.px - item.px) < 72);
-    const topOff  = overlap.length * STAGGER;
-    node.style.paddingTop = topOff + 'px';
-
-    const dateLabel = document.createElement('div');
-    dateLabel.className = 'evt-date-label';
-    dateLabel.textContent = fmtShort(item.evt.date);
-
-    const catPill = document.createElement('span');
-    catPill.className = 'evt-cat-pill';
-    catPill.style.background = col.badge;
-    catPill.style.color      = col.text;
-    catPill.textContent = item.evt.cat;
-
-    const stem = document.createElement('div');
-    stem.className = 'evt-stem';
-    stem.style.background = col.dot;
-
-    const dot = document.createElement('div');
-    dot.className = 'evt-dot';
-    dot.style.background = col.dot;
-
-    const desc = document.createElement('div');
-    desc.className = 'evt-desc-card';
-    const short = item.evt.desc.length > 90 ? item.evt.desc.slice(0, 87) + '…' : item.evt.desc;
-    desc.textContent = short;
-
-    node.appendChild(dateLabel);
-    node.appendChild(catPill);
-    node.appendChild(stem);
-    node.appendChild(dot);
-    node.appendChild(desc);
-
-    node.addEventListener('mouseenter', e => showTip(e, item.evt));
-    node.addEventListener('mouseleave', hideTip);
-
-    evtsLayer.appendChild(node);
+if (state.haveGrist) {
+  grist.ready({
+    requiredAccess: "full",
+    columns: [
+      { name: "DueDate", title: "Due Date", type: "Date,DateTime", description: "Date or DateTime that places the deadline on the calendar." },
+      { name: "Title", title: "Calendar Title", type: "Any", description: "Text shown for each deadline. If this is a formula column (e.g. built from Case + Category), this widget only reads it \u2014 it never writes to Title, so the formula is never overridden." },
+      { name: "Status", title: "Status", type: "Choice,Text", optional: true, description: "e.g. Complete / Incomplete / Ready. Editable from the calendar; Complete/Done/Closed turn the deadline green." },
+      { name: "Description", title: "Description", type: "Text,Any", optional: true, description: "A longer note. Shown clipped under each deadline in the list views; click the row to expand the full text." },
+      { name: "DaysLeft", title: "Days Left", type: "Int,Numeric,Any", optional: true, description: "A formula column giving days until the deadline (negative once overdue). Shown under the due date in the list views." },
+      { name: "Category", title: "Category", type: "Choice,ChoiceList,Text", optional: true, description: "Used for coloring, the Categories filter, and the critical (red) Flags list." },
+      { name: "Case", title: "Case / Matter", type: "Ref,Choice,Text", optional: true, description: "The case each deadline belongs to (a Reference to your master case list, or a Choice/Text case name). Lets new deadlines created here be filed under the right case." },
+      { name: "AssignedTo", title: "Assigned To", type: "Choice,ChoiceList,Text", optional: true, description: "One or more team members; powers the Assigned filter." },
+      { name: "Priority", title: "Priority", type: "Any", optional: true, description: "Number or choice (e.g. High/Medium/Low). High/important values turn the deadline red; also used for optional priority sorting." },
+    ],
   });
 
-  canvas.appendChild(evtsLayer);
+  grist.onOptions((opts) => {
+    opts = opts || {};
+    if (opts.view) state.view = opts.view;
+    if (typeof opts.sortByPriority === "boolean") state.sortByPriority = opts.sortByPriority;
+    if (opts.sortDir) state.sortDir = opts.sortDir;
+    if (Array.isArray(opts.hiddenCats)) state.hiddenCats = new Set(opts.hiddenCats);
+    if (Array.isArray(opts.hiddenAsgs)) state.hiddenAsgs = new Set(opts.hiddenAsgs);
+    if (Array.isArray(opts.hiddenStatuses)) state.hiddenStatuses = new Set(opts.hiddenStatuses);
+    if (Array.isArray(opts.redCats)) { state.redCats = new Set(opts.redCats); state.redCatsInit = true; }
+    if (typeof opts.showOutsideDeadlines === "boolean") state.showOutsideDeadlines = opts.showOutsideDeadlines;
+    if (typeof opts.caseHighlightEnabled === "boolean") state.caseHighlightEnabled = opts.caseHighlightEnabled;
+    if (typeof opts.weekStartDay === "number" && opts.weekStartDay >= 0 && opts.weekStartDay <= 6) state.weekStartDay = opts.weekStartDay;
+    if (typeof opts.hideWeekends === "boolean") state.hideWeekends = opts.hideWeekends;
+    if (typeof opts.maxChipsPerDay === "number" && opts.maxChipsPerDay >= 1) state.maxChipsPerDay = opts.maxChipsPerDay;
+    if (opts.timeFormat === "12h" || opts.timeFormat === "24h") state.timeFormat = opts.timeFormat;
+    if (typeof opts.searchFiltersOut === "boolean") state.searchFiltersOut = opts.searchFiltersOut;
+    if (opts.taskColorMode === "category" || opts.taskColorMode === "assignee") state.taskColorMode = opts.taskColorMode;
+    render();
+  });
+
+  grist.onRecords((records, mappings) => {
+    ingest(records, mappings);
+    render();
+    if (!state.typesChecked && state.dueColId) {
+      state.typesChecked = true;
+      detectColumnTypes();
+    } else if (state.caseTypeKnown && state.caseIsRef) {
+      // Keep the id map current as new cases get used, without a full type re-check.
+      refreshCaseIds().then(render);
+    }
+  });
+} else {
+  /* ===================== Demo data (preview outside Grist) =====================
+     Lets you try every feature \u2014 filters, editing, the Case picker, drag-and-
+     drop rescheduling, delete \u2014 before connecting a real Grist document. Runs
+     through the exact same ingest() used for live data, so what you see here is
+     what you'll get once this is wired to your table. Edits are in-memory only
+     and reset if you reload the page. */
+  state.demoMode = true;
+
+  const DEMO_MAPPINGS = {
+    DueDate: "DueDate", Title: "Title", Status: "Status", Description: "Description",
+    DaysLeft: "DaysLeft", Category: "Category", Case: "Case", AssignedTo: "AssignedTo", Priority: "Priority",
+  };
+  // Case is a true Reference column in this scenario (the common law-firm setup:
+  // a Case/Matter column referencing a master case-list table by name).
+  state.caseTypeKnown = true; state.caseIsRef = true; state.caseTargetTable = "Cases";
+  const CASE_IDS = {
+    "Reyes v. North Shore Logistics": 501,
+    "Kowalski v. City of Cicero": 502,
+    "Mbeki v. Elmhurst Hosp.": 503,
+    "Okonkwo v. Guaranteed Rate": 504,
+    "Intake": 505,
+  };
+
+  function demoDue(daysFromToday, hh, mm) {
+    const d = new Date(); d.setDate(d.getDate() + daysFromToday);
+    if (hh !== undefined) { d.setHours(hh, mm || 0, 0, 0); return Math.floor(d.getTime() / 1000); }
+    return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 1000);
+  }
+  const L = (...names) => ["L"].concat(names); // Grist ChoiceList cell marker
+
+  let demoRows = [
+    { id: 1, Title: "Serve Rule 26(a) initial disclosures", Case: "Reyes v. North Shore Logistics",
+      Category: "Discovery", AssignedTo: L("Dana Whitfield"), Priority: "High", Status: "Incomplete",
+      DueDate: demoDue(-3), DaysLeft: -3,
+      Description: "N.D. Ill. FRCP 26(a)(1) initial disclosures were due Monday; opposing counsel hasn't agreed to an extension." },
+    { id: 2, Title: "File motion to compel", Case: "Kowalski v. City of Cicero",
+      Category: "Motion", AssignedTo: L("Marcus Obi"), Priority: "High", Status: "Incomplete",
+      DueDate: demoDue(-1), DaysLeft: -1, Description: "" },
+    { id: 3, Title: "Client intake call \u2014 new referral", Case: "Intake",
+      Category: "Client", AssignedTo: L("Sam Ortega"), Priority: "Medium", Status: "Incomplete",
+      DueDate: demoDue(0, 10, 0), DaysLeft: 0, Description: "Referred by the Cook County Bar lawyer referral service." },
+    { id: 4, Title: "Respond to motion to dismiss", Case: "Okonkwo v. Guaranteed Rate",
+      Category: "Motion", AssignedTo: L("Priya Raman"), Priority: "High", Status: "Incomplete",
+      DueDate: demoDue(0, 17, 0), DaysLeft: 0, Description: "Response to the 2-615 motion is due by end of day." },
+    { id: 5, Title: "Deposition \u2014 Dr. Adeyemi", Case: "Mbeki v. Elmhurst Hosp.",
+      Category: "Discovery", AssignedTo: L("Priya Raman", "Dana Whitfield"), Priority: "Medium", Status: "Incomplete",
+      DueDate: demoDue(2, 9, 30), DaysLeft: 2, Description: "Rush, Oak Park office. Bring the radiology exhibits." },
+    { id: 6, Title: "SOL \u2014 file complaint", Case: "Okonkwo v. Guaranteed Rate",
+      Category: "SOL / Limitations", AssignedTo: L("Priya Raman"), Priority: "High", Status: "Incomplete",
+      DueDate: demoDue(5), DaysLeft: 5, Description: "735 ILCS 5/13-202 two-year statute of limitations. Do not miss." },
+    { id: 7, Title: "Settlement conference", Case: "Kowalski v. City of Cicero",
+      Category: "Trial Prep", AssignedTo: L("Marcus Obi", "Dana Whitfield"), Priority: "Medium", Status: "Incomplete",
+      DueDate: demoDue(5, 13, 0), DaysLeft: 5, Description: "" },
+    { id: 8, Title: "Draft written discovery responses", Case: "Reyes v. North Shore Logistics",
+      Category: "Discovery", AssignedTo: L("Dana Whitfield"), Priority: "Low", Status: "Ready",
+      DueDate: demoDue(5), DaysLeft: 5, Description: "" },
+    { id: 9, Title: "Witness disclosure \u2014 Rule 213(f)", Case: "Mbeki v. Elmhurst Hosp.",
+      Category: "Discovery", AssignedTo: L("Priya Raman"), Priority: "High", Status: "Incomplete",
+      DueDate: demoDue(7), DaysLeft: 7, Description: "Ill. S. Ct. R. 213(f) expert and lay witness disclosures." },
+    { id: 10, Title: "Trial \u2014 jury selection", Case: "Kowalski v. City of Cicero",
+      Category: "Trial Prep", AssignedTo: L("Marcus Obi"), Priority: "High", Status: "Incomplete",
+      DueDate: demoDue(21), DaysLeft: 21, Description: "" },
+    { id: 11, Title: "File answer to counterclaim", Case: "Reyes v. North Shore Logistics",
+      Category: "Filing", AssignedTo: L("Dana Whitfield"), Priority: "Medium", Status: "Complete",
+      DueDate: demoDue(-6), DaysLeft: -6, Description: "" },
+    { id: 12, Title: "Send engagement letter", Case: "Intake",
+      Category: "Client", AssignedTo: L("Sam Ortega"), Priority: "Low", Status: "Complete",
+      DueDate: demoDue(-10), DaysLeft: -10, Description: "" },
+    { id: 13, Title: "Records request \u2014 Elmhurst Hospital", Case: "Mbeki v. Elmhurst Hosp.",
+      Category: "Discovery", AssignedTo: L("Priya Raman"), Priority: "Medium", Status: "Incomplete",
+      DueDate: demoDue(1), DaysLeft: 1, Description: "HIPAA-compliant authorization already signed by the client." },
+    { id: 14, Title: "Quarterly trust account reconciliation", Case: null,
+      Category: "Admin", AssignedTo: L("Sam Ortega", "Dana Whitfield"), Priority: "Low", Status: "Incomplete",
+      DueDate: demoDue(10), DaysLeft: 10, Description: "Ill. Rule 1.15 trust accounting \u2014 no case, firm-wide task." },
+    { id: 15, Title: "Prepare exhibit binder", Case: "Kowalski v. City of Cicero",
+      Category: "Trial Prep", AssignedTo: L("Marcus Obi"), Priority: "Medium", Status: "Incomplete",
+      DueDate: demoDue(19), DaysLeft: 19, Description: "" },
+    { id: 16, Title: "Follow up on settlement offer", Case: "Okonkwo v. Guaranteed Rate",
+      Category: "Client", AssignedTo: L("Priya Raman"), Priority: "Low", Status: "Incomplete",
+      DueDate: demoDue(3), DaysLeft: 3, Description: "" },
+    // Undated \u2014 exercises the "needs attention" panel.
+    { id: 17, Title: "Schedule IME", Case: "Mbeki v. Elmhurst Hosp.",
+      Category: "Discovery", AssignedTo: L("Priya Raman"), Priority: "Medium", Status: "Incomplete",
+      DueDate: null, DaysLeft: null, Description: "" },
+    { id: 18, Title: "Open new matter \u2014 Torres referral", Case: "Intake",
+      Category: "Client", AssignedTo: L("Sam Ortega"), Priority: null, Status: "Incomplete",
+      DueDate: null, DaysLeft: null, Description: "" },
+  ];
+  let demoNextId = 19;
+
+  function demoIngestAndRender() {
+    ingest(demoRows, DEMO_MAPPINGS);
+    // A live doc would resolve these via refreshCaseIds(); here we already know them.
+    Object.keys(state.caseRegistry).forEach(label => {
+      if (CASE_IDS[label] !== undefined) state.caseRegistry[label] = CASE_IDS[label];
+    });
+    render();
+  }
+
+  writeField = async (rowId, colId, value) => {
+    if (!colId) return;
+    const row = demoRows.find(x => x.id === rowId);
+    if (row) row[colId] = value;
+    demoIngestAndRender();
+  };
+  createTask = async (fields) => {
+    const row = Object.assign({ id: demoNextId++ }, fields);
+    demoRows.push(row);
+    demoIngestAndRender();
+    return true;
+  };
+  deleteTask = async (rowId, title) => {
+    const label = title && String(title).trim() ? "\u201c" + String(title).trim() + "\u201d" : "this deadline";
+    if (!confirm("Delete " + label + "? (Demo data \u2014 this only affects your preview.)")) return;
+    demoRows = demoRows.filter(x => x.id !== rowId);
+    state.expandedRows.delete(rowId);
+    demoIngestAndRender();
+  };
+  selectInGrist = () => { /* no-op \u2014 nothing to jump to outside a real doc */ };
+  detectColumnTypes = async () => { /* types are set directly above for demo data */ };
+  refreshCaseIds = async () => { /* ids are seeded directly in demoIngestAndRender */ };
+
+  demoIngestAndRender();
 }
 
-/* ── TOOLTIP ───────────────────────────────────────────────── */
-const tipEl = document.getElementById('tooltip');
-function showTip(e, evt) {
-  const col = getCatColor(evt.cat);
-  tipEl.innerHTML =
-    `<div class="tt-date">${fmtShort(evt.date)}</div>` +
-    `<div class="tt-cat" style="color:${col.dot}">${evt.cat}` +
-      (evt.caseId ? ` &nbsp;·&nbsp; <span style="opacity:.6;font-weight:400">Case ${evt.caseId}</span>` : '') +
-    `</div>` +
-    `<div class="tt-desc">${evt.desc}</div>`;
-  tipEl.style.opacity = '1';
-  moveTooltip(e);
-  document.addEventListener('mousemove', moveTooltip);
-}
-function moveTooltip(e) {
-  tipEl.style.left = (e.clientX + 14) + 'px';
-  tipEl.style.top  = (e.clientY - 12) + 'px';
-}
-function hideTip() {
-  tipEl.style.opacity = '0';
-  document.removeEventListener('mousemove', moveTooltip);
-}
-
-/* ── RESIZE HANDLER ────────────────────────────────────────── */
-let resizeTimer;
-window.addEventListener('resize', () => {
-  clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(() => { if (allEvents.length) renderTimeline(); }, 150);
-});
+render();
 </script>
 </body>
 </html>
